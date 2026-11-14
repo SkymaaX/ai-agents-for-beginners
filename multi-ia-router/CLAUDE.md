@@ -66,6 +66,8 @@ vient avec son test.
 ## Tests
 
 - `tests/conftest.py::make_config` : config de simulation isolée dans un dossier temporaire.
+- Les tests chargent la config avec `use_local=False` : ni `config.local.yaml` ni `.env` de la
+  machine ne sont lus, et les variables de clés sont retirées de l'environnement.
 - `config.mock_scenario` force des situations (critique toujours négative, verdict en échec,
   panne, quota, JSON invalide) : voir l'en-tête de `router/agents/mock.py`.
 - Agents réels testés contre de faux serveurs (`httpx.MockTransport`) et de faux binaires

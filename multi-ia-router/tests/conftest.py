@@ -28,7 +28,8 @@ def make_config(tmp_path):
                 base[key] = {**base[key], **value}
             else:
                 base[key] = value
-        return load_config(ROOT / "config.yaml", overrides=base)
+        # use_local=False : les tests ignorent config.local.yaml et ROUTER_MOCK de la machine.
+        return load_config(ROOT / "config.yaml", overrides=base, use_local=False)
 
     return build
 
@@ -37,3 +38,10 @@ def make_config(tmp_path):
 def no_sleep(monkeypatch):
     """Les attentes entre deux essais ne doivent pas ralentir les tests."""
     monkeypatch.setattr("router.agents.base.time.sleep", lambda seconds: None)
+
+
+@pytest.fixture(autouse=True)
+def clean_environment(monkeypatch):
+    """Isole les tests des réglages de la machine : pas de mode simulation forcé, pas de vraies clés."""
+    for name in ("ROUTER_MOCK", "ANYTHINGLLM_API_KEY", "GEMINI_API_KEY", "ANTHROPIC_API_KEY"):
+        monkeypatch.delenv(name, raising=False)

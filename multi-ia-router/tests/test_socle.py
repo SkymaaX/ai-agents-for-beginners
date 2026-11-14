@@ -17,7 +17,7 @@ from conftest import ROOT
 
 
 def test_config_loads_and_checks():
-    config = load_config(ROOT / "config.yaml")
+    config = load_config(ROOT / "config.yaml", use_local=False)
     assert config.roles.chef == "qwen"
     assert config.critic_name_for("gemini") == "claude"
     assert config.critic_name_for("claude_code") == "gemini"
@@ -26,12 +26,12 @@ def test_config_loads_and_checks():
 
 def test_nobody_reviews_own_family():
     with pytest.raises(ConfigError, match="propre copie"):
-        load_config(ROOT / "config.yaml", overrides={"roles": {"critics": {"claude_code": "claude"}}})
+        load_config(ROOT / "config.yaml", use_local=False, overrides={"roles": {"critics": {"claude_code": "claude"}}})
 
 
 def test_unknown_role_agent_rejected():
     with pytest.raises(ConfigError):
-        load_config(ROOT / "config.yaml", overrides={"roles": {"chef": "inconnu"}})
+        load_config(ROOT / "config.yaml", use_local=False, overrides={"roles": {"chef": "inconnu"}})
 
 
 def test_local_override_file(tmp_path):
@@ -129,3 +129,24 @@ def test_fit_text_keeps_headings_and_marks_cuts():
     blocks, cut = fit_blocks([("a", "x" * 9000), ("b", "court")], 3000)
     assert cut and blocks[1][1] == "court"
     assert fit_blocks([("a", "x")], 0) == ([("a", "x")], False)
+
+
+def test_local_file_can_be_ignored(tmp_path):
+    """Les tests chargent la config sans les réglages personnels de la machine."""
+    (tmp_path / "config.yaml").write_text((ROOT / "config.yaml").read_text(encoding="utf-8"), encoding="utf-8")
+    (tmp_path / "config.local.yaml").write_text("mock: true\nreview:\n  max_rounds: 9\n", encoding="utf-8")
+    assert load_config(tmp_path / "config.yaml", root=tmp_path).review.max_rounds == 9
+    plain = load_config(tmp_path / "config.yaml", root=tmp_path, use_local=False)
+    assert plain.review.max_rounds == 3 and plain.mock is False
+
+
+def test_env_file_is_loaded_only_with_local_settings(tmp_path, monkeypatch):
+    import os
+
+    (tmp_path / "config.yaml").write_text((ROOT / "config.yaml").read_text(encoding="utf-8"), encoding="utf-8")
+    (tmp_path / ".env").write_text("GEMINI_API_KEY=cle-du-fichier-env\n", encoding="utf-8")
+    load_config(tmp_path / "config.yaml", root=tmp_path, use_local=False)
+    assert "GEMINI_API_KEY" not in os.environ  # une vraie clé ne doit jamais fuir dans les tests
+    load_config(tmp_path / "config.yaml", root=tmp_path)
+    assert os.environ["GEMINI_API_KEY"] == "cle-du-fichier-env"
+    monkeypatch.delenv("GEMINI_API_KEY")

@@ -233,13 +233,20 @@ def load_config(
     overrides: dict | None = None,
     root: Path | None = None,
     check: bool = True,
+    use_local: bool = True,
 ) -> Config:
-    """Charge la config. `overrides` sert aux tests et aux options de ligne de commande."""
+    """Charge la config. `overrides` sert aux tests et aux options de ligne de commande.
+
+    `use_local=False` ignore config.local.yaml et .env : les tests ne doivent dépendre ni des
+    réglages personnels de la machine, ni de ses vraies clés.
+    """
     root = Path(root) if root else ROOT
-    load_dotenv(root / ".env")
+    if use_local:
+        load_dotenv(root / ".env")
     main = Path(path) if path else root / "config.yaml"
     data = _read_yaml(main)
-    data = _deep_merge(data, _read_yaml(main.with_name("config.local.yaml")))
+    if use_local:
+        data = _deep_merge(data, _read_yaml(main.with_name("config.local.yaml")))
     if overrides:
         data = _deep_merge(data, overrides)
     if os.environ.get("ROUTER_MOCK", "").strip().lower() in ("1", "true", "yes", "oui"):
