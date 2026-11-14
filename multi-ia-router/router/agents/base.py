@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any, Callable, ClassVar, TypeVar
 from pydantic import BaseModel, ValidationError
 
 from ..config import AgentCfg
-from ..errors import AgentError, InvalidOutputError, QuotaError
+from ..errors import AgentError, InvalidOutputError, QuotaError, RouterError
 from ..jsonutil import extract_json, schema_text
 from ..logs import logger, stamp
 from ..textutil import estimate_tokens, fit_blocks
@@ -156,6 +156,8 @@ class Agent(ABC):
             except AgentError as exc:
                 error = exc
                 error.agent = error.agent or self.name
+            except RouterError as exc:  # config incomplète (clé absente, binaire introuvable) : inutile de réessayer
+                error = AgentError(str(exc), retryable=False, agent=self.name)
             except Exception as exc:  # erreur imprévue d'un SDK : traitée comme passagère
                 error = AgentError(f"{type(exc).__name__}: {exc}", retryable=True, agent=self.name)
             duration = round(time.monotonic() - started, 3)
