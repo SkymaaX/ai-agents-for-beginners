@@ -200,3 +200,12 @@ def test_dashboard_opened_to_network_skips_host_check(make_config):
     with TestClient(create_app(config), base_url="http://192.168.1.20:8765") as client:
         assert client.get("/api/meta").status_code == 200
         assert client.post("/api/projects", json={"request": "x"}, headers={"origin": "https://evil.example.com"}).status_code == 403
+
+
+def test_local_only_can_be_disabled_for_a_trusted_proxy(make_config):
+    config = make_config(dashboard={"local_only": False}, mock_scenario={"critique": "accept"})
+    with TestClient(create_app(config), base_url="https://apercu.example.net") as client:
+        assert client.get("/api/meta").status_code == 200
+        created = client.post("/api/projects", json={"request": "Projet via aperçu"}, headers={"origin": "https://autre.example.net"})
+        assert created.status_code == 200
+        wait_done(client, created.json()["id"])

@@ -480,7 +480,7 @@ Ce projet a été construit et testé sur une machine sans carte graphique, sans
 
 Vérifié :
 
-- 110 tests automatiques, tous verts.
+- 111 tests automatiques, tous verts.
 - Le pipeline complet, la reprise et la modification ciblée, en simulation, en ligne de commande et dans un vrai navigateur.
 - L'agent `claude_cli` avec le vrai Claude Code : critique au format JSON, plan JSON, écriture de fichiers par l'exécutant.
 

@@ -187,6 +187,8 @@ def create_app(config: Config) -> FastAPI:
         - En-tête Host inattendu → refus (attaque par « DNS rebinding » depuis un site web).
         - Requête d'écriture venue d'une autre origine → refus (un site ne peut pas lancer de projet).
         """
+        if not config.dashboard.local_only:  # derrière un proxy de confiance : contrôles désactivés exprès
+            return await call_next(request)
         host = request.headers.get("host", "")
         name = host.rsplit(":", 1)[0] if not host.endswith("]") else host
         if not open_to_network and name not in local_names:

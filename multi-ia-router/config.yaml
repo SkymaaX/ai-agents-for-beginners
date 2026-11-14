@@ -143,3 +143,4 @@ blender:
 dashboard:
   host: 127.0.0.1           # local uniquement
   port: 8765
+  local_only: true          # false seulement derrière un proxy de confiance (aperçu distant)

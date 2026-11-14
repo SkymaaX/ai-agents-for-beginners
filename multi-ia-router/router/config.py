@@ -126,6 +126,7 @@ class BlenderCfg(BaseModel):
 class DashboardCfg(BaseModel):
     host: str = "127.0.0.1"
     port: int = 8765
+    local_only: bool = True  # false = accepte les requêtes relayées par un proxy de confiance (aperçu distant)
 
 
 class Config(BaseModel):
