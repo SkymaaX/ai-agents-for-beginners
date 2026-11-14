@@ -14,9 +14,10 @@ import json
 import threading
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
 from markdown_it import MarkdownIt
 from pydantic import BaseModel
 
@@ -176,6 +177,24 @@ class Revision(BaseModel):
 def create_app(config: Config) -> FastAPI:
     app = FastAPI(title="Routeur multi-IA", docs_url=None, redoc_url=None)
     threads: dict[str, threading.Thread] = {}
+    open_to_network = config.dashboard.host in ("0.0.0.0", "::")
+    local_names = {"127.0.0.1", "localhost", "[::1]", config.dashboard.host}
+
+    @app.middleware("http")
+    async def local_only(request: Request, call_next):
+        """Le tableau de bord lance des agents : seule ta machine doit pouvoir lui parler.
+
+        - En-tête Host inattendu → refus (attaque par « DNS rebinding » depuis un site web).
+        - Requête d'écriture venue d'une autre origine → refus (un site ne peut pas lancer de projet).
+        """
+        host = request.headers.get("host", "")
+        name = host.rsplit(":", 1)[0] if not host.endswith("]") else host
+        if not open_to_network and name not in local_names:
+            return JSONResponse({"detail": "Hôte refusé : tableau de bord local uniquement."}, status_code=403)
+        origin = request.headers.get("origin")
+        if request.method not in ("GET", "HEAD", "OPTIONS") and origin and urlsplit(origin).netloc != host:
+            return JSONResponse({"detail": "Origine refusée."}, status_code=403)
+        return await call_next(request)
     lock = threading.Lock()
 
     def is_running(project_id: str) -> bool:

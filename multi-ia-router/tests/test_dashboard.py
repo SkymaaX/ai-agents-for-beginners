@@ -11,11 +11,13 @@ from fastapi.testclient import TestClient
 from router.dashboard.app import create_app, render_markdown
 from router.pipeline import orchestrator
 
+BASE = "http://127.0.0.1:8765"
+
 
 @pytest.fixture
 def client(make_config):
     config = make_config(mock_scenario={"critique": "accept"})
-    with TestClient(create_app(config)) as test_client:
+    with TestClient(create_app(config), base_url=BASE) as test_client:
         test_client.config = config
         yield test_client
 
@@ -111,7 +113,7 @@ def test_resume_failed_project_from_dashboard(make_config):
     broken = make_config(mock_scenario={"critique": "accept", "fail": {"role": "assembleur", "times": 1, "kind": "fatal"}})
     state = orchestrator.start(broken, "Projet qui casse à l'assemblage")
     assert state.status == "failed"
-    with TestClient(create_app(make_config(mock_scenario={"critique": "accept"}))) as client:
+    with TestClient(create_app(make_config(mock_scenario={"critique": "accept"})), base_url=BASE) as client:
         assert client.post(f"/api/projects/{state.id}/revise", json={"instruction": "x"}).status_code == 400  # pas terminé
         assert client.post(f"/api/projects/{state.id}/resume").status_code == 200
         assert wait_done(client, state.id)["state"]["status"] == "done"
@@ -181,3 +183,20 @@ def test_markdown_rendering_is_safe():
     assert 'src="/files/p/04_livrable/assets/p1/a.png"' in html and 'href="/files/p/04_livrable/assets/p1/b.py"' in html
     assert 'href="https://ex.org"' in html and 'rel="noopener noreferrer"' in html
     assert "<table>" in render_markdown("| a | b |\n|---|---|\n| 1 | 2 |")
+
+
+def test_dashboard_only_answers_local_requests(client):
+    assert client.get("/api/meta", headers={"host": "evil.example.com"}).status_code == 403  # DNS rebinding
+    assert client.get("/api/meta", headers={"host": "localhost:8765"}).status_code == 200
+    forged = client.post("/api/projects", json={"request": "x"}, headers={"origin": "https://evil.example.com"})
+    assert forged.status_code == 403 and client.get("/api/projects").json() == []  # aucun projet lancé par un site tiers
+    same = client.post("/api/projects", json={"request": "Projet légitime"}, headers={"origin": BASE})
+    assert same.status_code == 200
+    wait_done(client, same.json()["id"])
+
+
+def test_dashboard_opened_to_network_skips_host_check(make_config):
+    config = make_config(dashboard={"host": "0.0.0.0"})
+    with TestClient(create_app(config), base_url="http://192.168.1.20:8765") as client:
+        assert client.get("/api/meta").status_code == 200
+        assert client.post("/api/projects", json={"request": "x"}, headers={"origin": "https://evil.example.com"}).status_code == 403

@@ -211,12 +211,20 @@ def test_mock_project_stays_mock_on_resume(make_config, monkeypatch):
     assert all(r["model"].startswith("simulation:") for r in calls(load(real, resumed)) if r["ok"])
 
 
-def test_find_project_by_fragment(make_config):
+def test_find_project_by_fragment_title_or_latest(make_config):
     config = make_config(mock_scenario={"critique": "accept"})
-    state = orchestrator.start(config, "Recette de tarte aux pommes")
-    assert orchestrator.find_project(config, "tarte").id == state.id
-    with pytest.raises(ConfigError):
+    first = orchestrator.start(config, "Recette de tarte aux pommes")
+    long_request = "Prépare un guide pratique et très complet pour installer chez soi un potager sur balcon"
+    second = orchestrator.start(config, long_request)
+    assert "potager" not in second.id  # l'identifiant est tronqué : le mot n'y figure pas
+    assert orchestrator.find_project(config, "tarte").id == first.id        # fragment de l'identifiant
+    assert orchestrator.find_project(config, "Potager").id == second.id     # mot de la demande, casse ignorée
+    assert orchestrator.find_project(config, second.id).id == second.id     # identifiant exact
+    assert orchestrator.find_project(config, "dernier").id == second.id     # le plus récent
+    with pytest.raises(ConfigError, match="introuvable"):
         orchestrator.find_project(config, "introuvable")
+    with pytest.raises(ConfigError, match="plusieurs projets"):
+        orchestrator.find_project(config, "2")  # ambigu : présent dans les deux identifiants
 
 
 def test_small_context_agent_gets_reduced_documents(make_config):

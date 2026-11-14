@@ -94,16 +94,30 @@ def config_for(config: Config, project: Project) -> Config:
 
 
 def find_project(config: Config, project_id: str) -> Project:
-    """Charge un projet par identifiant exact, ou par début/fragment d'identifiant s'il est unique."""
+    """Charge un projet par identifiant exact, par fragment, ou « dernier » pour le plus récent.
+
+    Le fragment est cherché dans l'identifiant, puis dans le titre et la demande (sans tenir
+    compte de la casse) : `revise potager "…"` suffit s'il n'y a qu'un projet sur ce sujet.
+    """
     root = config.projects_dir
     exact = root / project_id
-    if (exact / "state.json").exists():
+    if project_id and (exact / "state.json").exists():
         return Project.load(exact)
-    matches = [d for d in sorted(root.glob("*")) if project_id in d.name and (d / "state.json").exists()] if root.exists() else []
+    directories = [d for d in sorted(root.glob("*")) if (d / "state.json").exists()] if root.exists() else []
+    if project_id.strip().lower() in ("dernier", "last", "latest") and directories:
+        # demande.md est écrit une seule fois, à la création : son horodatage date le projet.
+        return Project.load(max(directories, key=lambda d: ((d / "demande.md").stat().st_mtime_ns, d.name)))
+    needle = project_id.strip().lower()
+    matches = [d for d in directories if needle and needle in d.name.lower()]
+    if not matches and needle:
+        for directory in directories:
+            project = Project.load(directory)
+            if needle in project.state.title.lower() or needle in project.state.request.lower():
+                matches.append(directory)
     if len(matches) == 1:
         return Project.load(matches[0])
     if not matches:
-        raise ConfigError(f"Projet introuvable : « {project_id} » (dans {root})")
+        raise ConfigError(f"Projet introuvable : « {project_id} » (dans {root}). `python -m router list` affiche les projets.")
     raise ConfigError(f"« {project_id} » correspond à plusieurs projets : {[m.name for m in matches]}")
 
 

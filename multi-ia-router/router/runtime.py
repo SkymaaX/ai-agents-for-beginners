@@ -48,9 +48,9 @@ class Runtime:
             append_jsonl(self.project.calls_path, record)
         status = "ok" if record.get("ok") else f"ERREUR {record.get('error', '')[:120]}"
         logger.info(
-            "appel %-12s %-24s %6.1fs  %s→%s tokens  %s",
-            record.get("agent", ""), record.get("role", ""), record.get("duration_s", 0.0),
-            record.get("tokens_in", 0), record.get("tokens_out", 0), status,
+            "appel %-12s %-24s %-4s %6.1fs  %s→%s tokens  %s",
+            record.get("agent", ""), record.get("role", ""), record.get("part_id", ""),
+            record.get("duration_s", 0.0), record.get("tokens_in", 0), record.get("tokens_out", 0), status,
         )
 
     def set_current(self, **fields: str) -> None:
