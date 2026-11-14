@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Routeur multi-IA</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo" aria-hidden="true"></span>
+      <div>
+        <h1>Routeur multi-IA</h1>
+        <p>Une équipe d'IA, chacune à son poste</p>
+      </div>
+    </div>
+    <div id="mode" class="mode"></div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <section class="card compose">
+        <h2>Nouvelle demande</h2>
+        <textarea id="request" rows="6" placeholder="Décris ton projet : objectif, livrables attendus, contraintes…"></textarea>
+        <label class="check" id="mock-row">
+          <input type="checkbox" id="mock"> <span>Simulation (aucun appel réel)</span>
+        </label>
+        <button id="launch" class="primary">Lancer le projet</button>
+        <p id="launch-error" class="error" hidden></p>
+      </section>
+      <section class="card history">
+        <h2>Historique</h2>
+        <ul id="projects" class="projects"><li class="empty">Aucun projet pour l'instant.</li></ul>
+      </section>
+    </aside>
+
+    <main id="main" class="main">
+      <section class="card welcome" id="welcome">
+        <h2>Comment ça marche</h2>
+        <ol class="flow">
+          <li><b>Qwen</b> (chef, local) reformule ta demande.</li>
+          <li><b>Gemini</b> (répartiteur) la découpe en parties et assigne chaque partie.</li>
+          <li>Recherche commune : ta vault Obsidian et le web, une seule fois.</li>
+          <li>Chaque agent produit sa partie.</li>
+          <li>Critique croisée : personne ne juge sa propre copie. Trois tours au plus, puis Qwen tranche.</li>
+          <li><b>Claude</b> assemble le livrable unique.</li>
+          <li><b>Qwen</b> compare le livrable à ta demande : validé, ou renvoyé en correction.</li>
+          <li>Le livrable est enregistré dans le dossier du projet.</li>
+        </ol>
+        <p class="hint">Écris ta demande à gauche, ou coche « Simulation » pour voir le pipeline tourner sans aucun appel réel.</p>
+      </section>
+      <div id="project" hidden></div>
+    </main>
+  </div>
+
+  <dialog id="call-dialog">
+    <div class="dialog-head"><h3 id="call-title"></h3><button id="call-close" class="ghost">Fermer</button></div>
+    <div id="call-body"></div>
+  </dialog>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

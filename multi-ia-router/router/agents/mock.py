@@ -285,11 +285,11 @@ class MockAgent(Agent):
             )
         if task.role == ROLE_ASSEMBLE:
             sections = "\n\n".join(f"## {name}\n\n{body.strip()}" for name, body in meta.get("parts", []))
-            assets = "\n".join(
-                f"![{Path(a).stem}]({a})" if Path(a).suffix.lower() in (".png", ".jpg", ".jpeg", ".webp")
-                else f"- [{Path(a).name}]({a})"
-                for a in meta.get("assets", [])
-            )
+            images = (".png", ".jpg", ".jpeg", ".webp")
+            listed = meta.get("assets", [])
+            assets = "\n\n".join(f"![{Path(a).stem}]({a})" for a in listed if Path(a).suffix.lower() in images)
+            links = "\n".join(f"- [{Path(a).name}]({a})" for a in listed if Path(a).suffix.lower() not in images)
+            assets = (assets + "\n\n" + links).strip()
             note = f"\n\n> Correction d'assemblage appliquée : {meta['instruction']}" if meta.get("instruction") else ""
             return (
                 f"# {meta.get('project_title', 'Livrable')}\n\n"
