@@ -1,0 +1,145 @@
+# Routeur multi-IA — configuration.
+# Changer qui fait quoi = modifier ce fichier, jamais le code.
+# Réglages propres à ton PC (chemins, modèles) : crée `config.local.yaml` à côté, il surcharge
+# celui-ci et n'est pas versionné. `python -m router doctor --write` le remplit pour toi.
+
+language: fr          # langue des livrables
+mock: false           # true = simulation complète, aucun appel réel (ou option --mock)
+mock_delay: 0.0       # secondes par appel simulé (pour voir le pipeline bouger dans le tableau de bord)
+json_repairs: 2       # renvois autorisés quand un agent rend un JSON invalide
+
+paths:
+  projects_dir: projects          # un dossier par projet
+  cache_dir: cache                # cache de la recherche web
+  vault_dir: ""                   # chemin de ta vault Obsidian ; vide = pas de copie du livrable
+  vault_export_subdir: "Livrables IA"
+  blender_bin: blender            # ex. "C:/Program Files/Blender Foundation/Blender 4.2/blender.exe"
+
+# ─── Qui fait quoi ───────────────────────────────────────────────────────────────────────
+roles:
+  chef: qwen                # reformule, arbitre, valide le livrable final
+  dispatcher: gemini        # découpe en plan JSON
+  assembler: claude         # assemble le livrable unique
+  executor: claude_code     # fichiers, scripts, Blender
+  researcher: gemini        # recherche web et synthèse des sources
+  producers: [gemini, claude, claude_code, comfyui]   # agents que le répartiteur peut assigner
+  critics:                  # auteur → relecteur. Jamais la même famille : c'est vérifié au lancement.
+    gemini: claude
+    claude: gemini
+    claude_code: gemini
+    comfyui: gemini
+    default: claude
+
+# ─── Les agents ──────────────────────────────────────────────────────────────────────────
+# Champs communs : type, family (éditeur du modèle), enabled, model, timeout (s), retries,
+# backoff (s, doublé à chaque essai), max_context_chars (0 = illimité), capabilities.
+agents:
+  qwen:
+    type: anythingllm
+    family: qwen
+    description: "Modèle local Qwen, chef de projet."
+    base_url: http://localhost:3001
+    api_key_env: ANYTHINGLLM_API_KEY
+    workspace: chef             # slug d'un workspace AnythingLLM SANS documents
+    mode: chat
+    timeout: 900
+    retries: 2
+    max_context_chars: 24000    # à ajuster à la fenêtre de contexte de ton Qwen (≈ 4 caractères/token)
+
+  gemini:
+    type: gemini
+    family: google
+    description: "Gemini (Google) : rédaction, analyse, synthèse ; génère aussi des images."
+    api_key_env: GEMINI_API_KEY
+    model: gemini-3.1-pro-preview         # `doctor` liste les modèles réellement accessibles à ta clé
+    image_model: gemini-3-pro-image       # ou un modèle imagen-…
+    video_model: veo-3.1-generate-preview
+    capabilities: [text, vision, web_search, image]   # ajoute `video` si ta clé a accès à Veo
+    timeout: 600
+    retries: 3
+    backoff: 10
+
+  claude:
+    type: claude_cli            # claude_cli = abonnement via Claude Code ; claude_api = API au token
+    family: anthropic
+    description: "Claude (Anthropic) : rédaction exigeante, raisonnement, structuration."
+    model: ""                   # claude_cli : vide = modèle par défaut ; claude_api : claude-opus-5-5
+    effort: high
+    capabilities: [text, vision]
+    timeout: 1200
+    retries: 2
+    backoff: 5
+
+  claude_code:
+    type: claude_cli
+    family: anthropic
+    description: "Claude Code : écrit des fichiers sur disque (code, scripts, données, scripts Blender bpy)."
+    model: ""
+    effort: high
+    # Outils de fichiers uniquement, confinés au dossier de la partie. Ajouter Bash lui permet
+    # d'exécuter des commandes sur ton PC : à n'activer qu'en connaissance de cause.
+    tools: [Read, Write, Edit, Glob, Grep]
+    permission_mode: acceptEdits
+    capabilities: [text, files]
+    timeout: 1800
+    retries: 1
+    backoff: 5
+
+  comfyui:
+    type: comfyui
+    family: local-diffusion
+    enabled: false              # true quand ComfyUI tourne sur ton PC
+    description: "ComfyUI local (Flux / Stable Diffusion) : génération d'images sans coût."
+    base_url: http://127.0.0.1:8188
+    checkpoint: sd_xl_base_1.0.safetensors
+    workflow: ""                # vide = workflow SDXL fourni ; Flux : chemin de ton export « API »
+    width: 1344
+    height: 768
+    steps: 28
+    timeout: 900
+    retries: 1
+
+# ─── Critique croisée ────────────────────────────────────────────────────────────────────
+review:
+  max_rounds: 3             # tours auteur ↔ relecteur avant que le chef tranche
+  min_score: 4              # note minimale (sur 5) sur chaque critère pour accepter
+  rounds_after_return: 1    # tours après un renvoi du chef ou une modification demandée
+
+validation:
+  max_returns: 2            # renvois par le chef avant livraison « avec réserves »
+
+# ─── Recherche commune (une seule fois par projet) ───────────────────────────────────────
+research:
+  max_chars: 30000
+  vault:
+    enabled: true
+    agent: qwen             # réutilise l'URL et la clé AnythingLLM de cet agent
+    workspace: vault        # slug du workspace où ta vault Obsidian est indexée
+    top_n: 6
+    score_threshold: 0.25
+  web:
+    enabled: true
+    provider: gemini_grounding   # gemini_grounding (Google Search via ton API Gemini) | searxng
+    searxng_url: http://localhost:8080
+    max_queries: 5
+    max_results: 5
+    fetch_pages: true
+    rate_limit_seconds: 2.0      # délai minimal entre deux requêtes vers un même site
+    cache_ttl_hours: 168
+    respect_robots: true
+    user_agent: "multi-ia-router/1.0 (usage personnel ; respecte robots.txt)"
+
+# ─── Carte graphique partagée ────────────────────────────────────────────────────────────
+gpu:
+  exclusive: true           # true = jamais Qwen et ComfyUI ensemble en VRAM (file d'attente)
+  llm_backend: ollama       # moteur derrière AnythingLLM : ollama | lmstudio | command | none
+  ollama_url: http://localhost:11434
+  unload_command: []        # si llm_backend: command
+
+blender:
+  timeout: 900
+  max_fix_attempts: 3       # corrections automatiques du script si Blender plante
+
+dashboard:
+  host: 127.0.0.1           # local uniquement
+  port: 8765
