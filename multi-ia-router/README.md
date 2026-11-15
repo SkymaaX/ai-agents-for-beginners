@@ -15,17 +15,18 @@ Pensé pour de gros projets occasionnels : la qualité passe avant le temps et l
 3. [Préparer les outils](#préparer-les-outils)
 4. [Outils complémentaires (9 alternatives gratuites)](#outils-complémentaires-9-alternatives-gratuites)
 5. [Skills Claude Code (le top 10)](#skills-claude-code-le-top-10)
-6. [Configuration](#configuration)
-7. [Lancement](#lancement)
-8. [Exemple complet de bout en bout](#exemple-complet-de-bout-en-bout)
-9. [Modifier un projet sans tout refaire](#modifier-un-projet-sans-tout-refaire)
-10. [Le dossier d'un projet](#le-dossier-dun-projet)
-11. [Claude : API ou Claude Code headless](#claude--api-ou-claude-code-headless)
-12. [Recherche, VRAM, sécurité](#recherche-vram-sécurité)
-13. [Ajouter un agent](#ajouter-un-agent)
-14. [Tests](#tests)
-15. [Dépannage](#dépannage)
-16. [Ce qui a été vérifié, ce qui reste à vérifier chez toi](#ce-qui-a-été-vérifié-ce-qui-reste-à-vérifier-chez-toi)
+6. [Connecteurs Claude (Perplexity, Firecrawl, Playwright, Composio)](#connecteurs-claude-perplexity-firecrawl-playwright-composio)
+7. [Configuration](#configuration)
+8. [Lancement](#lancement)
+9. [Exemple complet de bout en bout](#exemple-complet-de-bout-en-bout)
+10. [Modifier un projet sans tout refaire](#modifier-un-projet-sans-tout-refaire)
+11. [Le dossier d'un projet](#le-dossier-dun-projet)
+12. [Claude : API ou Claude Code headless](#claude--api-ou-claude-code-headless)
+13. [Recherche, VRAM, sécurité](#recherche-vram-sécurité)
+14. [Ajouter un agent](#ajouter-un-agent)
+15. [Tests](#tests)
+16. [Dépannage](#dépannage)
+17. [Ce qui a été vérifié, ce qui reste à vérifier chez toi](#ce-qui-a-été-vérifié-ce-qui-reste-à-vérifier-chez-toi)
 
 ## Architecture
 
@@ -317,6 +318,35 @@ Chaque ligne `claude plugin install` est précédée de `claude plugin marketpla
 - **Les chiffres d'étoiles de l'infographie ne sont pas vérifiés** : les sources donnent des valeurs contradictoires selon la date. Les noms de plugins et de marketplaces, eux, viennent des fichiers `.claude-plugin/marketplace.json` officiels de chaque dépôt, relevés à la construction.
 - **Understand Anything** existe sous plusieurs propriétaires (copies, forks) ; le script prend `Egonex-AI`, dont le manifeste est signé « Egonex ». Si tu préfères une autre source, change-la dans `installer-skills.sh` et dans `tests/test_skills_installer.py`.
 - **Non testé pour de vrai** : le script a été validé avec de faux `claude`, `uv` et `npx` (commandes exactes, refus, reprise sur échec), jamais avec les vrais installeurs.
+
+## Connecteurs Claude (Perplexity, Firecrawl, Playwright, Composio)
+
+Les quatre connecteurs d'une vidéo « Arrête Claude sans ses 4 connecteurs » (recherche web, lecture de sites, navigateur piloté, applications). Ils s'ajoutent à **ton** Claude Code, pas au routeur. Même principe que les skills : un script, ton accord avant chaque commande.
+
+```bash
+./installer-connecteurs.sh --liste         # sources et effets
+./installer-connecteurs.sh --simulation    # affiche les commandes, n'exécute rien
+./installer-connecteurs.sh                 # propose chaque connecteur (o / N)
+./installer-connecteurs.sh playwright      # seulement celui-là
+```
+
+| Connecteur | Commande lancée (relevée dans le README officiel du projet) | Clé |
+|---|---|---|
+| Perplexity | `claude mcp add --scope user perplexity -e PERPLEXITY_API_KEY=… -- npx -y @perplexity-ai/mcp-server` | **oui** : clé API Perplexity |
+| Firecrawl | `claude mcp add --scope user --transport http firecrawl https://mcp.firecrawl.dev/v2/mcp` | non (offre gratuite, 3 outils : scrape, search, parse, débit limité) |
+| Firecrawl, avec ton compte | même commande avec `https://mcp.firecrawl.dev/v2/mcp-oauth`, puis `/mcp` dans Claude Code | non (connexion par navigateur). Seulement si tu écris `firecrawl-compte`. |
+| Playwright | `claude mcp add --scope user playwright -- npx @playwright/mcp@latest` | non |
+| Composio | **non installé** | voir ci-dessous |
+
+À savoir :
+
+- **Perplexity : la clé.** Le script la prend dans `PERPLEXITY_API_KEY` ou te la fait saisir sans écho ; il ne l'affiche jamais (la commande montrée porte `***`). Claude Code la range ensuite dans `~/.claude.json`, en clair : c'est son fonctionnement. Pendant l'exécution de `claude mcp add`, elle apparaît dans la liste des processus de ta machine. L'API Perplexity est un service distinct d'un abonnement : vérifie sa facturation avant.
+- **Composio : pas de commande vérifiée.** Le README officiel propose soit un point d'accès MCP hébergé créé par session avec du code et une clé `COMPOSIO_API_KEY`, soit une CLI installée par `curl -fsSL https://composio.dev/install | sh`. Ce script n'exécute jamais un `curl | sh` ; celui-là modifie en plus `~/.bashrc` et installe des plugins Claude Code (`--no-plugins` pour les éviter) : lis [INSTALL.md](https://github.com/ComposioHQ/composio/blob/HEAD/INSTALL.md) avant de le lancer toi-même. La documentation du site était illisible lors de la vérification.
+- **Chiffres de la vidéo non vérifiés** : « 10× moins de tokens » avec Perplexity, « +200 applications » avec Composio (le README en annonce plus de 1000).
+- **Connecteur claude.ai.** Firecrawl existe aussi comme connecteur de l'annuaire claude.ai (réglages des connecteurs, sans clé à coller) ; Perplexity, Playwright et Composio n'y figuraient pas dans la recherche faite à la construction.
+- **Le prompt de la vidéo** (« Installe et configure Perplexity, Fi… ») est coupé à l'image : j'ai pris les quatre connecteurs montrés.
+- **Non testé pour de vrai** : le script a été validé avec de faux `claude` et `npx` et un terminal simulé pour la saisie de la clé, jamais avec les vrais serveurs.
+- **Rien n'est branché dans le routeur.** Perplexity ou Firecrawl pourraient servir à l'étape de recherche ; ce serait un choix à part, non fait ici.
 
 ## Configuration
 
@@ -611,7 +641,7 @@ Retries, délais, journalisation, réduction de contexte et correction du JSON i
 python -m pytest
 ```
 
-La suite n'appelle aucun service réel : agents simulés, faux serveurs HTTP, faux binaires `claude` et `blender`. Elle couvre le pipeline complet, la critique croisée, l'arbitrage, les renvois, les pannes et la reprise, la modification ciblée, chaque agent, la recherche (robots.txt, débit, cache), Blender, la file VRAM, `doctor`, le tableau de bord, les lanceurs et l'installeur de skills.
+La suite n'appelle aucun service réel : agents simulés, faux serveurs HTTP, faux binaires `claude` et `blender`. Elle couvre le pipeline complet, la critique croisée, l'arbitrage, les renvois, les pannes et la reprise, la modification ciblée, chaque agent, la recherche (robots.txt, débit, cache), Blender, la file VRAM, `doctor`, le tableau de bord, les lanceurs et les installeurs de skills et de connecteurs.
 
 ## Dépannage
 
@@ -633,7 +663,7 @@ Ce projet a été construit et testé sur une machine sans carte graphique, sans
 
 Vérifié :
 
-- 205 tests automatiques, tous verts.
+- 230 tests automatiques, tous verts.
 - Le pipeline complet, la reprise et la modification ciblée, en simulation, en ligne de commande et dans un vrai navigateur.
 - L'agent `claude_cli` avec le vrai Claude Code : critique au format JSON, plan JSON, écriture de fichiers par l'exécutant.
 - L'agent `voix` contre un **vrai serveur MCP** local (protocole réel, clé en `Bearer`, deux variantes de noms de paramètres).

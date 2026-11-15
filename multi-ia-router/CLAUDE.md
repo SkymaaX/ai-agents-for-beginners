@@ -37,6 +37,7 @@ vient avec son test.
 | Diagnostic | `router/doctor.py` |
 | Outils complémentaires (catalogue, installation, état) | `router/toolbox/catalog.yaml` (faits vérifiés) + `core.py` + `cli.py` |
 | Skills Claude Code du top 10 (installation guidée) | `installer-skills.sh` ; noms relevés dans les `marketplace.json` officiels, à garder alignés avec `tests/test_skills_installer.py` |
+| Connecteurs Claude Code (Perplexity, Firecrawl, Playwright, Composio) | `installer-connecteurs.sh` ; commandes relevées dans les README officiels, à garder alignées avec `tests/test_connectors_installer.py` |
 | Voix de synthèse (VoiceStudio, MCP) | `router/agents/voicestudio.py` ; partie `audio` : `router/pipeline/parts.py` |
 
 ## Règles de conception à respecter
@@ -73,6 +74,7 @@ vient avec son test.
 - **Partie `audio`.** Elle lit le texte de la partie dont elle dépend (`depends_on`) ; si cette partie
   change, `propagate_to_audio` la remet à refaire. Le relecteur ne peut pas écouter : ne pas lui demander.
 - **Skills Claude Code.** `installer-skills.sh` ne lance rien sans « o », sans `sudo`, sans `curl | sh`. Les skills ne sont jamais branchés dans les agents `claude_cli` (`--setting-sources project`). Un nom de plugin ne s'écrit pas de mémoire : lire le `marketplace.json` du dépôt.
+- **Connecteurs Claude Code.** Même règles que les skills, et une clé n'est jamais affichée, écrite dans un fichier du projet ni passée dans un message : variable d'environnement ou saisie sans écho, commande affichée avec `***` (`run_masked`). Un connecteur sans commande vérifiée (Composio) est expliqué, pas installé.
 - **Client MCP.** Il lit le schéma annoncé par le serveur (`tools/list`) pour nommer les paramètres.
   Le SDK `mcp` 2.x masque les codes HTTP : voir `_probe_status` pour distinguer clé refusée et panne.
 
@@ -94,5 +96,5 @@ vient avec son test.
 - AnythingLLM, Gemini, ComfyUI et Blender réels n'ont pas pu être testés à la construction
   (machine sans GPU ni clés) : seulement contre des faux. `claude -p` a été testé en réel.
 - Les images Docker des outils complémentaires n'ont jamais été lancées (pas de démon Docker à la construction).
-- `installer-skills.sh` n'a jamais lancé les vrais `claude plugin install`, `uv` ou `npx` : testé avec de faux binaires.
+- `installer-skills.sh` et `installer-connecteurs.sh` n'ont jamais lancé les vrais `claude plugin install`, `claude mcp add`, `uv` ou `npx` : testés avec de faux binaires (`tests/shellbox.py`).
 - Les noms de modèles Gemini de `config.yaml` sont à confirmer avec `doctor`.

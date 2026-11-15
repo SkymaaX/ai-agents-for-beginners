@@ -17,6 +17,7 @@ from pathlib import Path
 import pytest
 
 from conftest import ROOT
+from shellbox import Sandbox
 
 SCRIPT = ROOT / "installer-skills.sh"
 posix_only = pytest.mark.skipif(sys.platform == "win32", reason="script shell")
@@ -33,68 +34,9 @@ PLUGINS = {
 }
 ARCHIFY = "npx -y skills@latest add https://archify.si --skill archify --agent claude-code --global --copy --yes"
 
-FAKE_CLAUDE = """#!/bin/sh
-echo "claude $*" >> "$FAKE_LOG"
-case "$1 $2 $3" in
-  "plugin list "*) cat "$FAKE_STATE/plugins" 2>/dev/null; exit 0 ;;
-  "plugin marketplace list") cat "$FAKE_STATE/markets" 2>/dev/null; exit 0 ;;
-esac
-if [ -n "${FAKE_FAIL:-}" ]; then
-  case "$*" in *"$FAKE_FAIL"*) echo "erreur simulée" >&2; exit 1 ;; esac
-fi
-exit 0
-"""
-FAKE_GRAPHIFY = '#!/bin/sh\necho "graphify $*" >> "$FAKE_LOG"\n'
-FAKE_UV = """#!/bin/sh
-echo "uv $*" >> "$FAKE_LOG"
-if [ "$1 $2" = "tool install" ]; then
-  printf '#!/bin/sh\\necho "graphify $*" >> "$FAKE_LOG"\\n' > "$FAKE_BIN/graphify"
-  chmod +x "$FAKE_BIN/graphify"
-fi
-"""
-FAKE_RECORDER = '#!/bin/sh\necho "{name} $*" >> "$FAKE_LOG"\n'
-
-
-class Sandbox:
-    """PATH réduit à des faux binaires, plus quelques outils système (grep, cat, sed, chmod, python3)."""
-
-    def __init__(self, tmp: Path, *, tools: tuple[str, ...] = ("claude", "node", "npx", "uv")):
-        self.bin = tmp / "bin"
-        self.bin.mkdir()
-        self.state = tmp / "state"
-        self.state.mkdir()
-        self.log = tmp / "calls.log"
-        for real in ("grep", "python3", "cat", "sed", "chmod"):
-            found = shutil.which(real)
-            assert found, f"{real} introuvable pour le test"
-            (self.bin / real).symlink_to(found)
-        scripts = {"claude": FAKE_CLAUDE, "uv": FAKE_UV, "graphify": FAKE_GRAPHIFY}
-        for name in tools:
-            path = self.bin / name
-            path.write_text(scripts.get(name, FAKE_RECORDER.format(name=name)), encoding="utf-8")
-            path.chmod(0o755)
-        self.env = {
-            "PATH": str(self.bin), "HOME": str(tmp), "FAKE_LOG": str(self.log),
-            "FAKE_STATE": str(self.state), "FAKE_BIN": str(self.bin),
-        }
-
-    def run(self, *args: str, stdin: str = "", env: dict | None = None) -> subprocess.CompletedProcess:
-        return subprocess.run(
-            ["/bin/sh", str(SCRIPT), *args], input=stdin, capture_output=True, text=True,
-            env={**self.env, **(env or {})}, timeout=60,
-        )
-
-    def calls(self) -> list[str]:
-        """Appels qui changent quelque chose (les lectures `plugin list` ne comptent pas)."""
-        if not self.log.exists():
-            return []
-        lines = self.log.read_text(encoding="utf-8").splitlines()
-        return [line for line in lines if not line.startswith(("claude plugin list", "claude plugin marketplace list"))]
-
-
 @pytest.fixture
 def sandbox(tmp_path):
-    return Sandbox(tmp_path)
+    return Sandbox(tmp_path, SCRIPT)
 
 
 # --- Le fichier lui-même ----------------------------------------------------------------------
@@ -228,7 +170,7 @@ def test_unknown_marketplace_that_cannot_be_added_is_a_failure(sandbox):
 
 @posix_only
 def test_missing_claude_is_explained_and_nothing_else_is_tried(tmp_path):
-    box = Sandbox(tmp_path, tools=("node", "npx", "uv"))
+    box = Sandbox(tmp_path, SCRIPT, tools=("node", "npx", "uv"))
     result = box.run("caveman", "--oui")
     assert result.returncode == 1 and "Manque : claude" in result.stderr
     assert box.calls() == []
@@ -236,7 +178,7 @@ def test_missing_claude_is_explained_and_nothing_else_is_tried(tmp_path):
 
 @posix_only
 def test_ponytail_needs_node(tmp_path):
-    box = Sandbox(tmp_path, tools=("claude",))
+    box = Sandbox(tmp_path, SCRIPT, tools=("claude",))
     result = box.run("ponytail", "--oui")
     assert result.returncode == 1 and "Manque : node" in result.stderr
     assert box.calls() == []
@@ -244,7 +186,7 @@ def test_ponytail_needs_node(tmp_path):
 
 @posix_only
 def test_graphify_without_uv_or_pipx_stops_with_a_hint_and_installs_nothing(tmp_path):
-    box = Sandbox(tmp_path, tools=("claude",))
+    box = Sandbox(tmp_path, SCRIPT, tools=("claude",))
     result = box.run("graphify", "--oui")
     assert result.returncode == 1 and "uv ou pipx" in result.stderr
     assert box.calls() == []
@@ -252,7 +194,7 @@ def test_graphify_without_uv_or_pipx_stops_with_a_hint_and_installs_nothing(tmp_
 
 @posix_only
 def test_graphify_falls_back_to_pipx(tmp_path):
-    box = Sandbox(tmp_path, tools=("claude", "pipx", "graphify"))
+    box = Sandbox(tmp_path, SCRIPT, tools=("claude", "pipx", "graphify"))
     (box.bin / "graphify").unlink()  # pas encore installé
     pipx = box.bin / "pipx"
     pipx.write_text(
@@ -267,7 +209,7 @@ def test_graphify_falls_back_to_pipx(tmp_path):
 
 @posix_only
 def test_graphify_already_present_only_registers_the_skill(tmp_path):
-    box = Sandbox(tmp_path, tools=("claude", "graphify"))
+    box = Sandbox(tmp_path, SCRIPT, tools=("claude", "graphify"))
     result = box.run("graphify", "--oui")
     assert result.returncode == 0, result.stdout + result.stderr
     assert box.calls() == ["graphify install"]
@@ -275,7 +217,7 @@ def test_graphify_already_present_only_registers_the_skill(tmp_path):
 
 @posix_only
 def test_graphify_not_on_path_after_install_tells_how_to_finish(tmp_path):
-    box = Sandbox(tmp_path, tools=("claude", "uv"))
+    box = Sandbox(tmp_path, SCRIPT, tools=("claude", "uv"))
     (box.bin / "uv").write_text('#!/bin/sh\necho "uv $*" >> "$FAKE_LOG"\n', encoding="utf-8")  # n'installe rien
     result = box.run("graphify", "--oui")
     assert result.returncode == 1 and "uv tool update-shell" in result.stderr
@@ -284,7 +226,7 @@ def test_graphify_not_on_path_after_install_tells_how_to_finish(tmp_path):
 
 @posix_only
 def test_archify_needs_npx(tmp_path):
-    box = Sandbox(tmp_path, tools=("claude",))
+    box = Sandbox(tmp_path, SCRIPT, tools=("claude",))
     result = box.run("archify", "--oui")
     assert result.returncode == 1 and "Manque : npx" in result.stderr
     assert box.calls() == []
