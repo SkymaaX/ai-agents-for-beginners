@@ -92,6 +92,17 @@ flowchart LR
     DASH -. "lit en direct" .-> STATE
 ```
 
+## Démarrage en un clic
+
+Dans le dossier `multi-ia-router/` :
+
+- **Windows** : double-clique sur `demarrer.bat`.
+- **Linux / macOS** : `./demarrer.sh`.
+
+Le lanceur crée l'environnement Python, installe les dépendances, crée `.env` s'il manque, lance `python -m router doctor --write` (qui détecte ta machine et remplit `config.local.yaml`), puis ouvre le tableau de bord sur http://127.0.0.1:8765. Option `--installer-seulement` : tout préparer sans lancer le tableau de bord. Les clés restent à renseigner à la main dans `.env`.
+
+*Le lanceur Linux est testé sur une copie propre ; la version Windows (`demarrer.bat`) n'a pas pu être exécutée sur Windows.*
+
 ## Installation
 
 Prérequis : Python 3.12 ou plus, Git. Le reste (AnythingLLM, Claude Code, Blender, ComfyUI) est décrit plus bas.
