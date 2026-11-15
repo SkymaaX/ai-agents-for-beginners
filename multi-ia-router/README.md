@@ -14,17 +14,18 @@ Pensé pour de gros projets occasionnels : la qualité passe avant le temps et l
 2. [Installation](#installation)
 3. [Préparer les outils](#préparer-les-outils)
 4. [Outils complémentaires (9 alternatives gratuites)](#outils-complémentaires-9-alternatives-gratuites)
-5. [Configuration](#configuration)
-6. [Lancement](#lancement)
-7. [Exemple complet de bout en bout](#exemple-complet-de-bout-en-bout)
-8. [Modifier un projet sans tout refaire](#modifier-un-projet-sans-tout-refaire)
-9. [Le dossier d'un projet](#le-dossier-dun-projet)
-10. [Claude : API ou Claude Code headless](#claude--api-ou-claude-code-headless)
-11. [Recherche, VRAM, sécurité](#recherche-vram-sécurité)
-12. [Ajouter un agent](#ajouter-un-agent)
-13. [Tests](#tests)
-14. [Dépannage](#dépannage)
-15. [Ce qui a été vérifié, ce qui reste à vérifier chez toi](#ce-qui-a-été-vérifié-ce-qui-reste-à-vérifier-chez-toi)
+5. [Skills Claude Code (le top 10)](#skills-claude-code-le-top-10)
+6. [Configuration](#configuration)
+7. [Lancement](#lancement)
+8. [Exemple complet de bout en bout](#exemple-complet-de-bout-en-bout)
+9. [Modifier un projet sans tout refaire](#modifier-un-projet-sans-tout-refaire)
+10. [Le dossier d'un projet](#le-dossier-dun-projet)
+11. [Claude : API ou Claude Code headless](#claude--api-ou-claude-code-headless)
+12. [Recherche, VRAM, sécurité](#recherche-vram-sécurité)
+13. [Ajouter un agent](#ajouter-un-agent)
+14. [Tests](#tests)
+15. [Dépannage](#dépannage)
+16. [Ce qui a été vérifié, ce qui reste à vérifier chez toi](#ce-qui-a-été-vérifié-ce-qui-reste-à-vérifier-chez-toi)
 
 ## Architecture
 
@@ -278,6 +279,44 @@ Brancher un outil sans API documentée reviendrait à inventer son contrat : il 
 - **Open Generative AI** : par défaut, la génération passe par le service cloud **payant** Muapi.ai. Le local n'existe que dans l'application de bureau, sans API locale documentée. Pour des images locales pilotées par le routeur, utilise **ComfyUI** (déjà intégré). Ses installeurs sont non signés et le README demande de désactiver des protections système (SmartScreen, Gatekeeper, AppArmor) : le routeur ne le fait pas à ta place.
 - **AppFlowy** : seule l'application de bureau est proposée. Son auto-hébergement n'est pas retenu : le dépôt AppFlowy-Cloud est archivé depuis septembre 2026 et son successeur est sous licence commerciale.
 - **Cal.diy** : non automatisé, son README le déclare « strictement recommandé pour un usage personnel, hors production ».
+
+## Skills Claude Code (le top 10)
+
+Dix skills populaires pour **ton** Claude Code (pas pour le routeur). Un script les installe un par un, en demandant ton accord avant chacun :
+
+```bash
+./installer-skills.sh --liste         # sources et effets de chaque skill
+./installer-skills.sh --simulation    # affiche les commandes, n'exécute rien
+./installer-skills.sh                 # propose chaque skill (o / N)
+./installer-skills.sh caveman ponytail   # seulement ceux-là
+```
+
+Linux et macOS. Sous Windows, tape à la main les commandes `/plugin marketplace add …` et `/plugin install …` affichées par `--simulation`.
+
+| Skill | Source | Commande lancée par le script |
+|---|---|---|
+| Superpowers | `obra/superpowers` | `claude plugin install superpowers@superpowers-dev` |
+| Ponytail | `DietrichGebert/ponytail` | `claude plugin install ponytail@ponytail` (Node.js requis) |
+| UI UX Pro Max | `nextlevelbuilder/ui-ux-pro-max-skill` | `claude plugin install ui-ux-pro-max@ui-ux-pro-max-skill` |
+| Graphify | paquet PyPI `graphifyy` (deux y) | `uv tool install graphifyy` (ou `pipx`), puis `graphify install` |
+| Caveman | `JuliusBrussee/caveman` | `claude plugin install caveman@caveman` |
+| Addy Osmani Skills | `addyosmani/agent-skills` | `claude plugin install agent-skills@addy-agent-skills` |
+| Understand Anything | `Egonex-AI/Understand-Anything` | `claude plugin install understand-anything@understand-anything` |
+| Awesome Claude Skills | `ComposioHQ/awesome-claude-skills` | **aucune** : c'est une liste de plus de mille entrées, pas un skill |
+| Archify | `archify.si` | `npx -y skills@latest add https://archify.si --skill archify --agent claude-code --global --copy --yes` |
+| Impeccable | `pbakaus/impeccable` | `claude plugin install impeccable@impeccable` |
+
+Chaque ligne `claude plugin install` est précédée de `claude plugin marketplace add <source>`.
+
+À savoir avant de dire oui :
+
+- **Ce sont des codes tiers.** Superpowers, Ponytail, Graphify et d'autres ajoutent des hooks, des règles ou des scripts qui s'exécutent dans chaque session. Le script ne fait aucun `sudo`, aucun `curl | sh`, et n'installe pas `uv` à ta place.
+- **Caveman raccourcit toutes tes réponses** Claude Code tant qu'il est actif (`stop caveman` pour revenir).
+- **Relance Claude Code** après l'installation pour activer les plugins.
+- **Rien n'est branché dans le routeur.** Ses agents `claude_cli` ne chargent que la config du projet (`--setting-sources project`), exprès : un Caveman ou un Superpowers personnel changerait la forme des livrables. Les y brancher serait un choix à part, non fait ici et non testé : demande-le si tu en veux un précis.
+- **Les chiffres d'étoiles de l'infographie ne sont pas vérifiés** : les sources donnent des valeurs contradictoires selon la date. Les noms de plugins et de marketplaces, eux, viennent des fichiers `.claude-plugin/marketplace.json` officiels de chaque dépôt, relevés à la construction.
+- **Understand Anything** existe sous plusieurs propriétaires (copies, forks) ; le script prend `Egonex-AI`, dont le manifeste est signé « Egonex ». Si tu préfères une autre source, change-la dans `installer-skills.sh` et dans `tests/test_skills_installer.py`.
+- **Non testé pour de vrai** : le script a été validé avec de faux `claude`, `uv` et `npx` (commandes exactes, refus, reprise sur échec), jamais avec les vrais installeurs.
 
 ## Configuration
 
@@ -572,7 +611,7 @@ Retries, délais, journalisation, réduction de contexte et correction du JSON i
 python -m pytest
 ```
 
-La suite n'appelle aucun service réel : agents simulés, faux serveurs HTTP, faux binaires `claude` et `blender`. Elle couvre le pipeline complet, la critique croisée, l'arbitrage, les renvois, les pannes et la reprise, la modification ciblée, chaque agent, la recherche (robots.txt, débit, cache), Blender, la file VRAM, `doctor` et le tableau de bord.
+La suite n'appelle aucun service réel : agents simulés, faux serveurs HTTP, faux binaires `claude` et `blender`. Elle couvre le pipeline complet, la critique croisée, l'arbitrage, les renvois, les pannes et la reprise, la modification ciblée, chaque agent, la recherche (robots.txt, débit, cache), Blender, la file VRAM, `doctor`, le tableau de bord, les lanceurs et l'installeur de skills.
 
 ## Dépannage
 
@@ -594,7 +633,7 @@ Ce projet a été construit et testé sur une machine sans carte graphique, sans
 
 Vérifié :
 
-- 180 tests automatiques, tous verts.
+- 205 tests automatiques, tous verts.
 - Le pipeline complet, la reprise et la modification ciblée, en simulation, en ligne de commande et dans un vrai navigateur.
 - L'agent `claude_cli` avec le vrai Claude Code : critique au format JSON, plan JSON, écriture de fichiers par l'exécutant.
 - L'agent `voix` contre un **vrai serveur MCP** local (protocole réel, clé en `Bearer`, deux variantes de noms de paramètres).

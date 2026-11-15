@@ -36,6 +36,7 @@ vient avec son test.
 | Tableau de bord | API : `router/dashboard/app.py` ; page : `router/dashboard/static/` |
 | Diagnostic | `router/doctor.py` |
 | Outils complémentaires (catalogue, installation, état) | `router/toolbox/catalog.yaml` (faits vérifiés) + `core.py` + `cli.py` |
+| Skills Claude Code du top 10 (installation guidée) | `installer-skills.sh` ; noms relevés dans les `marketplace.json` officiels, à garder alignés avec `tests/test_skills_installer.py` |
 | Voix de synthèse (VoiceStudio, MCP) | `router/agents/voicestudio.py` ; partie `audio` : `router/pipeline/parts.py` |
 
 ## Règles de conception à respecter
@@ -71,6 +72,7 @@ vient avec son test.
   Les secrets sont générés, jamais affichés, un `.env` existant n'est jamais réécrit.
 - **Partie `audio`.** Elle lit le texte de la partie dont elle dépend (`depends_on`) ; si cette partie
   change, `propagate_to_audio` la remet à refaire. Le relecteur ne peut pas écouter : ne pas lui demander.
+- **Skills Claude Code.** `installer-skills.sh` ne lance rien sans « o », sans `sudo`, sans `curl | sh`. Les skills ne sont jamais branchés dans les agents `claude_cli` (`--setting-sources project`). Un nom de plugin ne s'écrit pas de mémoire : lire le `marketplace.json` du dépôt.
 - **Client MCP.** Il lit le schéma annoncé par le serveur (`tools/list`) pour nommer les paramètres.
   Le SDK `mcp` 2.x masque les codes HTTP : voir `_probe_status` pour distinguer clé refusée et panne.
 
@@ -92,4 +94,5 @@ vient avec son test.
 - AnythingLLM, Gemini, ComfyUI et Blender réels n'ont pas pu être testés à la construction
   (machine sans GPU ni clés) : seulement contre des faux. `claude -p` a été testé en réel.
 - Les images Docker des outils complémentaires n'ont jamais été lancées (pas de démon Docker à la construction).
+- `installer-skills.sh` n'a jamais lancé les vrais `claude plugin install`, `uv` ou `npx` : testé avec de faux binaires.
 - Les noms de modèles Gemini de `config.yaml` sont à confirmer avec `doctor`.
