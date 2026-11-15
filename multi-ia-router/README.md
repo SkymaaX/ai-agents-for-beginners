@@ -94,28 +94,68 @@ flowchart LR
 
 ## Démarrage en un clic
 
-Dans le dossier `multi-ia-router/` :
+> **Dans tout ce README, `python -m router …` s'écrit `./routeur …` sous Linux et macOS, et `routeur …` sous Windows.** Le script `routeur` utilise l'environnement du projet : rien à activer, et pas besoin d'une commande `python` (beaucoup de Linux n'ont que `python3`).
 
-- **Windows** : double-clique sur `demarrer.bat`.
-- **Linux / macOS** : `./demarrer.sh`.
-
-Le lanceur crée l'environnement Python, installe les dépendances, crée `.env` s'il manque, lance `python -m router doctor --write` (qui détecte ta machine et remplit `config.local.yaml`), puis ouvre le tableau de bord sur http://127.0.0.1:8765. Option `--installer-seulement` : tout préparer sans lancer le tableau de bord. Les clés restent à renseigner à la main dans `.env`.
-
-*Le lanceur Linux est testé sur une copie propre ; la version Windows (`demarrer.bat`) n'a pas pu être exécutée sur Windows.*
-
-## Installation
-
-Prérequis : Python 3.12 ou plus, Git. Le reste (AnythingLLM, Claude Code, Blender, ComfyUI) est décrit plus bas.
+### Linux (Debian, Ubuntu, Fedora, Arch…)
 
 ```bash
-git clone <ton dépôt>
-cd ai-agents-for-beginners/multi-ia-router
+# 1. Prérequis (Debian / Ubuntu ; ailleurs : python 3.12+, venv, pip, git)
+sudo apt install python3 python3-venv python3-pip git
 
-python -m venv .venv
-# Windows :
-.venv\Scripts\activate
+# 2. Dans le dossier du projet
+cd multi-ia-router
+bash demarrer.sh            # installe, crée .env, diagnostique, ouvre le tableau de bord
+```
+
+Si tu as récupéré un zip et que `./routeur` répond « Permission denied » : `chmod +x routeur demarrer.sh`.
+
+Ensuite, toutes les commandes passent par `./routeur` :
+
+```bash
+./routeur doctor                          # diagnostic
+./routeur tools list                      # les 9 outils complémentaires
+./routeur tools install voicestudio --dry-run
+./routeur --mock run "ma demande"         # essai sans aucun appel réel
+./routeur dashboard                       # http://127.0.0.1:8765
+```
+
+**Docker sous Linux** (pour les outils complémentaires) : installe Docker Engine depuis https://docs.docker.com/engine/install/, puis
+
+```bash
+sudo usermod -aG docker $USER     # autorise ton compte à utiliser Docker sans sudo
+# ferme et rouvre ta session (ou : newgrp docker)
+docker compose version            # doit afficher 2.24 ou plus
+sudo systemctl enable --now docker
+```
+
+Sans cela, `tools install` s'arrête avec un message qui te dit exactement quoi faire.
+
+### Windows
+
+Double-clique sur `demarrer.bat`. Option `--installer-seulement` : tout préparer sans lancer le tableau de bord. Ensuite : `routeur doctor`, `routeur tools list`…
+
+### Ce que fait le lanceur
+
+Il crée l'environnement Python, installe les dépendances, crée `.env` s'il manque, lance `doctor --write` (qui détecte ta machine et remplit `config.local.yaml`), puis ouvre le tableau de bord sur http://127.0.0.1:8765. Les clés restent à renseigner à la main dans `.env`.
+
+*Le lanceur Linux est testé sur une copie propre ; la version Windows (`demarrer.bat`, `routeur.bat`) n'a pas pu être exécutée sur Windows.*
+
+## Installation à la main
+
+Le lanceur ci-dessus fait tout cela pour toi ; cette section sert si tu préfères voir chaque étape. Prérequis : Python 3.12 ou plus (avec `venv`), Git. Le reste (AnythingLLM, Claude Code, Blender, ComfyUI) est décrit plus bas.
+
+```bash
+git clone https://github.com/SkymaaX/ai-agents-for-beginners.git
+cd ai-agents-for-beginners
+git checkout claude/multi-ia-router-system-dkoxlo     # la branche qui contient le routeur
+cd multi-ia-router
+
 # Linux / macOS :
+python3 -m venv .venv
 source .venv/bin/activate
+# Windows (invite de commandes) :
+#   py -3 -m venv .venv
+#   .venv\Scripts\activate
 
 pip install -r requirements.txt
 ```
@@ -123,14 +163,13 @@ pip install -r requirements.txt
 Clés API : copie `.env.example` en `.env` et remplis-le. Le fichier `.env` n'est jamais versionné, aucune clé n'est dans le code.
 
 ```bash
-# Windows : copy .env.example .env
-cp .env.example .env
+cp .env.example .env          # Windows : copy .env.example .env
 ```
 
 Vérifie tout de suite que l'installation fonctionne, sans aucun appel réel :
 
 ```bash
-python -m router --mock run "Rédige un guide pour débuter le compost en appartement"
+./routeur --mock run "Rédige un guide pour débuter le compost en appartement"     # ou : python -m router --mock run …
 ```
 
 ## Préparer les outils
@@ -555,7 +594,7 @@ Ce projet a été construit et testé sur une machine sans carte graphique, sans
 
 Vérifié :
 
-- 172 tests automatiques, tous verts.
+- 179 tests automatiques, tous verts.
 - Le pipeline complet, la reprise et la modification ciblée, en simulation, en ligne de commande et dans un vrai navigateur.
 - L'agent `claude_cli` avec le vrai Claude Code : critique au format JSON, plan JSON, écriture de fichiers par l'exécutant.
 - L'agent `voix` contre un **vrai serveur MCP** local (protocole réel, clé en `Bearer`, deux variantes de noms de paramètres).

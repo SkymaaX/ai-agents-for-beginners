@@ -16,7 +16,15 @@ if [ -z "$PY" ]; then
   exit 1
 fi
 
-[ -d .venv ] || "$PY" -m venv .venv
+if [ ! -d .venv ]; then
+  if ! "$PY" -m venv .venv; then
+    rm -rf .venv
+    echo "Impossible de créer l'environnement Python." >&2
+    echo "Debian / Ubuntu : sudo apt install python3-venv python3-pip   (puis relance ce script)" >&2
+    echo "Fedora : sudo dnf install python3   —   Arch : sudo pacman -S python" >&2
+    exit 1
+  fi
+fi
 . .venv/bin/activate
 echo "→ Installation des dépendances…"
 pip install -q -r requirements.txt
@@ -29,7 +37,7 @@ echo "→ Diagnostic de ta machine…"
 python -m router doctor --write || true
 
 if [ "$1" = "--installer-seulement" ]; then
-  echo "Prêt. Lancer le tableau de bord : python -m router dashboard"
+  echo "Prêt. Lancer le tableau de bord : ./routeur dashboard"
   exit 0
 fi
 echo "→ Tableau de bord : http://127.0.0.1:8765 (Ctrl+C pour arrêter)"

@@ -33,7 +33,7 @@ echo Diagnostic de ta machine...
 python -m router doctor --write
 
 if "%~1"=="--installer-seulement" (
-  echo Pret. Lancer le tableau de bord : python -m router dashboard
+  echo Pret. Lancer le tableau de bord : routeur dashboard
   pause
   exit /b 0
 )

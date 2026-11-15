@@ -1,3 +1,4 @@
 # Fins de ligne : le lanceur Windows doit rester en CRLF, le lanceur shell en LF.
 *.bat text eol=crlf
 *.sh  text eol=lf
+routeur text eol=lf

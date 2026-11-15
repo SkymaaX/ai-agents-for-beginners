@@ -387,6 +387,25 @@ def test_failed_command_stops_with_the_reason(box_factory):
         box_factory(runner=runner).install("openseo")
 
 
+def test_linux_docker_permission_and_daemon_errors_get_an_actionable_hint(box_factory):
+    class Failing(FakeRunner):
+        def __init__(self, stderr):
+            super().__init__()
+            self.stderr = stderr
+
+        def run(self, command, **kwargs):
+            if command[:2] == ["docker", "inspect"]:
+                return subprocess.CompletedProcess(command, 1, "", "")
+            return subprocess.CompletedProcess(command, 1, "", self.stderr)
+
+    denied = Failing("permission denied while trying to connect to the Docker daemon socket at unix:///var/run/docker.sock")
+    with pytest.raises(ConfigError, match=r"usermod -aG docker \$USER"):
+        box_factory(runner=denied).install("voicestudio")
+    down = Failing("Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?")
+    with pytest.raises(ConfigError, match="systemctl start docker"):
+        box_factory(runner=down).install("voicestudio")
+
+
 def test_missing_docker_is_explained(box_factory, monkeypatch):
     box = box_factory()
     monkeypatch.setattr("router.toolbox.core.shutil.which", lambda name: None)

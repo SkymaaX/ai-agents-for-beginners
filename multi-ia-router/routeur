@@ -1,0 +1,10 @@
+#!/usr/bin/env sh
+# Lance le routeur avec son propre environnement Python : pas besoin d'activer quoi que ce soit,
+# et pas besoin d'une commande `python` (beaucoup de Linux n'ont que `python3`).
+#   ./routeur tools list        ./routeur doctor        ./routeur dashboard        ./routeur --mock run "ma demande"
+HERE="$(cd "$(dirname "$0")" && pwd)"
+if [ ! -x "$HERE/.venv/bin/python" ]; then
+  echo "L'environnement n'est pas installé. Lance d'abord : bash demarrer.sh --installer-seulement" >&2
+  exit 1
+fi
+exec "$HERE/.venv/bin/python" -m router "$@"

@@ -200,7 +200,14 @@ class Toolbox:
             raise ConfigError(f"Délai dépassé ({timeout:.0f} s) : {' '.join(printable)}") from exc
         if proc.returncode != 0:
             tail = ((proc.stderr or "") + (proc.stdout or "")).strip()[-1200:]
-            raise ConfigError(f"Échec de `{' '.join(printable)}` (code {proc.returncode}) :\n{tail}")
+            hint = ""
+            if "permission denied" in tail.lower() and "docker.sock" in tail.lower():
+                hint = ("\nLinux : ton compte n'a pas le droit d'utiliser Docker. "
+                        "Ajoute-le au groupe docker : sudo usermod -aG docker $USER, "
+                        "puis ferme et rouvre ta session (ou lance : newgrp docker).")
+            elif "cannot connect to the docker daemon" in tail.lower() or "is the docker daemon running" in tail.lower():
+                hint = "\nLe service Docker n'est pas démarré. Linux : sudo systemctl start docker (Windows/macOS : lance Docker Desktop)."
+            raise ConfigError(f"Échec de `{' '.join(printable)}` (code {proc.returncode}) :\n{tail}{hint}")
         return proc
 
     def _need(self, binary: str) -> None:
