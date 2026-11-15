@@ -9,3 +9,5 @@ fastapi>=0.110
 uvicorn>=0.29
 markdown-it-py>=3.0
 pytest>=8.0
+# Client MCP (agent `voix` / VoiceStudio) : l'API a changé en 2.x, ne pas descendre sous 2.0
+mcp>=2.0,<3

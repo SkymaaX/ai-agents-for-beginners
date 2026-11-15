@@ -10,7 +10,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
-PartType = Literal["text", "code", "files", "blender", "image", "video"]
+PartType = Literal["text", "code", "files", "blender", "image", "video", "audio"]
 Severity = Literal["bloquant", "majeur", "mineur"]
 
 GRID = ("fidelite", "completude", "erreurs", "qualite", "sources")
@@ -48,7 +48,7 @@ class ExpectedOutput(BaseModel):
 class Part(BaseModel):
     id: str = Field(description="Identifiant court et unique : p1, p2...")
     title: str
-    type: PartType = Field(description="text, code, files, blender, image ou video")
+    type: PartType = Field(description="text, code, files, blender, image, video ou audio")
     agent: str = Field(description="Nom exact d'un agent disponible")
     depends_on: list[str] = Field(default_factory=list, description="Ids des parties requises avant")
     prompt: str = Field(description="Prompt optimisé, autonome, pour l'agent assigné")
@@ -124,6 +124,11 @@ def check_plan(plan: Plan, agents: dict[str, set[str]], capability_for_type: dic
                     f"Partie {part.id} : l'agent « {part.agent} » ne sait pas produire le type "
                     f"« {part.type} ». Agents capables : {able or 'aucun — change le type'}."
                 )
+        if part.type == "audio" and not part.depends_on and not part.prompt.strip():
+            problems.append(
+                f"Partie {part.id} (audio) : sans dépendance, son prompt est le texte lu tel quel : il ne peut pas être vide. "
+                "Fais-la dépendre d'une partie `text` qui rédige le script de narration."
+            )
         for dep in part.depends_on:
             if dep not in ids:
                 problems.append(f"Partie {part.id} : dépendance inconnue « {dep} ».")

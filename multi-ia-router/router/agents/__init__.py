@@ -25,6 +25,7 @@ AGENT_TYPES: dict[str, str] = {
     "claude_api": "router.agents.claude_api:ClaudeApiAgent",
     "claude_cli": "router.agents.claude_cli:ClaudeCliAgent",
     "comfyui": "router.agents.comfyui:ComfyUIAgent",
+    "voicestudio": "router.agents.voicestudio:VoiceStudioAgent",
     "mock": "router.agents.mock:MockAgent",
 }
 

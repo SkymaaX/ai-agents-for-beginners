@@ -12,6 +12,8 @@ Critères de réussite de cette partie :
 
 Le contexte ci-dessus contient la demande du client, le brief, le dossier de recherche et la version à relire (avec ses fichiers s'il y en a).{{response_note}}
 
+Si la version contient un fichier audio, tu ne peux pas l'écouter : juge le texte lu, la présence et la durée du fichier, et ne baisse aucune note pour cette seule impossibilité.
+
 Évalue cette version sur la grille fixe, chaque critère noté de 0 à 5 :
 - fidelite : le travail répond à la demande du client et à la consigne, sans hors-sujet ;
 - completude : tout ce qui est demandé est présent, au niveau de détail attendu ;

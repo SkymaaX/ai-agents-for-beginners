@@ -22,12 +22,13 @@ roles:
   assembler: claude         # assemble le livrable unique
   executor: claude_code     # fichiers, scripts, Blender
   researcher: gemini        # recherche web et synthèse des sources
-  producers: [gemini, claude, claude_code, comfyui]   # agents que le répartiteur peut assigner
+  producers: [gemini, claude, claude_code, comfyui, voix]   # agents que le répartiteur peut assigner
   critics:                  # auteur → relecteur. Jamais la même famille : c'est vérifié au lancement.
     gemini: claude
     claude: gemini
     claude_code: gemini
     comfyui: gemini
+    voix: claude
     default: claude
 
 # ─── Les agents ──────────────────────────────────────────────────────────────────────────
@@ -99,6 +100,23 @@ agents:
     timeout: 900
     retries: 1
 
+  voix:
+    type: voicestudio
+    family: voicestudio
+    enabled: false              # true après `python -m router tools install voicestudio` puis `tools start voicestudio`
+    description: "Voix de synthèse locale (VoiceStudio) : lit un texte à voix haute, narration, voix clonée."
+    base_url: http://127.0.0.1:3900
+    mcp_path: /mcp/
+    api_key_env: OMNIVOICE_API_KEY   # lue dans .env ; écrite par `tools install voicestudio`
+    tool: generate_speech
+    voice: ""                   # identifiant (profile_id) d'une voix clonée ; vide = voix par défaut
+    language: ""                # vide = langue du profil de voix
+    format: wav                 # wav | ogg | opus
+    gpu_group: ""               # "tts" si VoiceStudio tourne sur la carte graphique partagée
+    timeout: 600
+    retries: 2
+    backoff: 5
+
 # ─── Critique croisée ────────────────────────────────────────────────────────────────────
 review:
   max_rounds: 3             # tours auteur ↔ relecteur avant que le chef tranche
@@ -144,3 +162,8 @@ dashboard:
   host: 127.0.0.1           # local uniquement
   port: 8765
   local_only: true          # false seulement derrière un proxy de confiance (aperçu distant)
+
+# ─── Outils complémentaires (python -m router tools list) ────────────────────────────────
+tools:
+  dir: ""                   # où sont clonés les outils ; vide = ~/.multi-ia-router/tools
+  ports: {}                 # ex. {openseo: 3011} : port hôte par outil

@@ -26,6 +26,7 @@ CAPABILITY_FOR_TYPE = {
     "blender": "files",
     "image": "image",
     "video": "video",
+    "audio": "audio",
 }
 
 
@@ -123,6 +124,11 @@ class BlenderCfg(BaseModel):
     max_fix_attempts: int = 3
 
 
+class ToolsCfg(BaseModel):
+    dir: str = ""  # où cloner les outils ; vide = ~/.multi-ia-router/tools
+    ports: dict[str, int] = Field(default_factory=dict)  # port hôte par outil (surcharge le catalogue)
+
+
 class DashboardCfg(BaseModel):
     host: str = "127.0.0.1"
     port: int = 8765
@@ -144,6 +150,7 @@ class Config(BaseModel):
     gpu: GpuCfg = Field(default_factory=GpuCfg)
     blender: BlenderCfg = Field(default_factory=BlenderCfg)
     dashboard: DashboardCfg = Field(default_factory=DashboardCfg)
+    tools: ToolsCfg = Field(default_factory=ToolsCfg)
 
     root: Path = Field(default=ROOT, exclude=True)
 

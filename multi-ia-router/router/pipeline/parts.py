@@ -7,18 +7,60 @@ modifications). Écrit toujours `vN.md` (contenu ou compte rendu) et, s'il y a d
 
 from __future__ import annotations
 
+import re
 import shutil
+import wave
 from pathlib import Path
 
 from ..agents.base import ROLE_PRODUCE, ROLE_REVISE, AgentResult, AgentTask
+from ..errors import AgentError
 from ..prompts import bullets
 from ..runtime import Runtime
 from ..schemas import Critique, Part, Plan
 from ..tools import blender
-from .common import base_context, dependency_context, files_context, prompt, split_response, system
+from .common import (
+    base_context, best_version, dependency_context, files_context, prompt, split_response, system,
+)
 
 FILE_TYPES = ("code", "files", "blender")
 MEDIA_TYPES = ("image", "video")
+
+
+def speakable(text: str) -> str:
+    """Texte Markdown → texte à lire à voix haute : sans titres, liens, renvois de sources, code."""
+    text = re.sub(r"```.*?```", " ", text, flags=re.DOTALL)
+    text = re.sub(r"^\s*#{1,6}\s+.*\(version \d+\)\s*$", "", text, count=1, flags=re.MULTILINE)  # titre de version
+    text = re.sub(r"!\[[^\]]*\]\([^)]*\)", " ", text)
+    text = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", text)
+    text = re.sub(r"\s*\[S\d+(?:\s*,\s*S\d+)*\]", "", text)  # renvois [S3], [S1, S2]
+    text = re.sub(r"^\s*#{1,6}\s*", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^\s*[-*+]\s+", "", text, flags=re.MULTILINE)
+    text = re.sub(r"[*_`>]+", "", text)
+    text = re.sub(r"[ \t]+", " ", text)
+    return re.sub(r"\n{3,}", "\n\n", text).strip()
+
+
+def spoken_text(rt: Runtime, plan: Plan, part: Part) -> tuple[str, str]:
+    """(texte à dire, origine). Une partie audio lit le texte de la première partie dont elle dépend ;
+    sans dépendance, c'est son propre prompt qui est lu tel quel."""
+    project = rt.project
+    assert project is not None
+    for dep_id in part.depends_on:
+        if project.state.parts[dep_id].status == "removed":
+            continue
+        version = best_version(project, dep_id)
+        if version:
+            origin = f"la partie {dep_id} — {plan.part(dep_id).title} (version {version})"
+            return speakable(project.read_text(project.version_path(dep_id, version))), origin
+    return speakable(part.prompt), "le prompt du répartiteur"
+
+
+def wav_duration(path: Path) -> float | None:
+    try:
+        with wave.open(str(path), "rb") as handle:
+            return handle.getnframes() / float(handle.getframerate())
+    except (wave.Error, EOFError, OSError):
+        return None
 
 
 def _reason(critique: Critique | None, instruction: str) -> str:
@@ -77,7 +119,36 @@ def generate(
         context.append((f"Ta version actuelle (version {version - 1})", previous))
 
     response = ""
-    if part.type in MEDIA_TYPES:
+    if part.type == "audio":
+        # Une voix de synthèse lit un texte : elle ne peut pas « corriger » une critique.
+        # Si le texte doit changer, c'est la partie dont elle dépend qui est révisée.
+        spoken, origin = spoken_text(rt, plan, part)
+        if not spoken:
+            raise AgentError(
+                f"Partie audio {part.id} : aucun texte à lire (prompt vide et aucune partie dont elle dépende).",
+                retryable=False, agent=part.agent,
+            )
+        files_dir = project.version_files_dir(part.id, version)
+        if files_dir.exists():
+            shutil.rmtree(files_dir)
+        files_dir.mkdir(parents=True)
+        filename = part.expected_output.filename or "narration.wav"
+        result = agent.run(AgentTask(
+            role=role, stage=stage, part_id=part.id, prompt=spoken, kind="audio", workdir=files_dir,
+            meta={**meta, "filename": filename},
+        ))
+        produced = result.files[0] if result.files else None
+        length = wav_duration(produced) if produced else None
+        report = [f"Narration générée par {agent.name} à partir de {origin}."]
+        if produced:
+            report.append(f"Fichier audio : {produced.name} ({produced.stat().st_size} octets"
+                          + (f", durée {length:.1f} s" if length else "") + ").")
+        report.append("Le relecteur ne peut pas écouter le fichier : il juge le texte lu et la présence du fichier.")
+        if revising:
+            report.append("Version régénérée : la voix ne réécrit pas le texte ; pour le modifier, il faut réviser la partie dont celle-ci dépend.")
+        content = "\n\n".join(report) + f"\n\nTexte lu :\n\n{spoken}"
+
+    elif part.type in MEDIA_TYPES:
         # Un modèle d'image lit un prompt, pas une critique : on ne garde que les corrections.
         text = part.prompt.strip()
         fixes = [instruction] if instruction else []

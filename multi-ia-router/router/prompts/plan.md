@@ -20,6 +20,7 @@ Types de partie et capacité requise chez l'agent :
 - blender : scène 3D produite par un script Python bpy exécuté par Blender en arrière-plan (capacité files)
 - image : image générée (capacité image)
 - video : vidéo générée (capacité video)
+- audio : voix de synthèse qui lit un texte (capacité audio). Le texte à lire est celui de la partie dont elle dépend (depends_on) : crée donc d'abord une partie `text` qui rédige le script de narration, puis une partie `audio` qui en dépend ; sans dépendance, c'est le prompt de la partie audio qui est lu tel quel.
 
 Découpe la demande en parties et établis le plan.
 

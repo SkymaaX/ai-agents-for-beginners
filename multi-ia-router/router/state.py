@@ -33,6 +33,7 @@ STAGE_LABELS = {
 }
 
 IMAGE_EXT = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
+AUDIO_EXT = {".wav", ".mp3", ".ogg", ".opus", ".flac", ".m4a"}
 TEXT_EXT = {
     ".md", ".txt", ".py", ".json", ".yaml", ".yml", ".toml", ".csv", ".html", ".css", ".js",
     ".ts", ".sh", ".bat", ".ps1", ".xml", ".ini", ".cfg", ".log", ".svg", ".tex", ".rst",

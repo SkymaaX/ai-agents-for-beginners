@@ -12,7 +12,7 @@ from ..research.dossier import build_dossier
 from ..runtime import Runtime
 from ..schemas import Plan, RevisionPlan, check_plan
 from ..state import PartState
-from .common import active_parts, agents_text, prompt, system
+from .common import active_parts, agents_text, prompt, propagate_to_audio, system
 
 
 def run(rt: Runtime) -> None:
@@ -83,6 +83,7 @@ def run(rt: Runtime) -> None:
     if revision.assembly_instructions.strip():
         plan.assembly_instructions = revision.assembly_instructions.strip()
     project.write_json(project.plan_path, plan)
+    narrations = propagate_to_audio(project, plan, [c.part_id for c in revision.changes], cfg.review.rounds_after_return)
 
     # L'assembleur reçoit toujours la demande de modification : c'est lui qui la rend visible.
     state.assembly_instruction = f"Modification demandée par le client : {modification.instruction}"
@@ -100,6 +101,6 @@ def run(rt: Runtime) -> None:
         project.write_json(project.research_dir / "sources.json", existing + sources)
 
     rt.event(
-        "replan", stage="replan", changed=[c.part_id for c in revision.changes],
+        "replan", stage="replan", changed=[c.part_id for c in revision.changes] + narrations,
         added=[p.id for p in revision.new_parts], removed=revision.remove_parts,
     )

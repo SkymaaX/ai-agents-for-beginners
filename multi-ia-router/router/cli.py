@@ -6,6 +6,7 @@
   revise <projet> "consigne"  modifie un projet terminé sans tout refaire
   list / status <projet>      historique et détail
   dashboard                   tableau de bord web local
+  tools list|status|install|start|stop   outils complémentaires open source
 """
 
 from __future__ import annotations
@@ -42,6 +43,23 @@ def _parser() -> argparse.ArgumentParser:
     revise = sub.add_parser("revise", help="modifie un projet terminé")
     revise.add_argument("project")
     revise.add_argument("instruction", help="la modification demandée (entre guillemets)")
+
+    tools = sub.add_parser("tools", help="outils complémentaires open source (VoiceStudio, OpenSEO, Cap, Chatwoot…)")
+    tools_sub = tools.add_subparsers(dest="tools_command", required=True)
+    tools_sub.add_parser("list", help="liste les outils et leur état")
+    t_status = tools_sub.add_parser("status", help="détail d'un outil (ou de tous)")
+    t_status.add_argument("tool", nargs="?")
+    t_install = tools_sub.add_parser("install", help="prépare un outil (rien n'est démarré)")
+    t_install.add_argument("tool", nargs="?")
+    t_install.add_argument("--all", action="store_true", help="prépare tous les outils automatisables")
+    t_install.add_argument("--gpu", action="store_true", help="VoiceStudio : accès à la carte NVIDIA (--gpus all)")
+    t_install.add_argument("--dry-run", action="store_true", help="affiche ce qui serait fait, sans rien exécuter")
+    t_start = tools_sub.add_parser("start", help="démarre un outil")
+    t_start.add_argument("tool")
+    t_start.add_argument("--dry-run", action="store_true")
+    t_stop = tools_sub.add_parser("stop", help="arrête un outil (les données sont conservées)")
+    t_stop.add_argument("tool")
+    t_stop.add_argument("--dry-run", action="store_true")
 
     sub.add_parser("list", help="liste les projets")
     status = sub.add_parser("status", help="détail d'un projet")
@@ -86,13 +104,18 @@ def main(argv: list[str] | None = None) -> int:
     try:
         overrides = {"mock": True} if args.mock else None
         # `doctor` doit pouvoir tourner même si la config est encore incomplète.
-        config = load_config(args.config, overrides=overrides, check=args.command not in ("doctor", "list", "status"))
+        config = load_config(args.config, overrides=overrides, check=args.command not in ("doctor", "list", "status", "tools"))
         setup_logging(config.root / "logs", verbose=args.verbose)
 
         if args.command == "doctor":
             from .doctor import run_doctor
 
             return run_doctor(config, write=args.write)
+
+        if args.command == "tools":
+            from .toolbox.cli import run_tools
+
+            return run_tools(config, args)
 
         if args.command == "dashboard":
             from .dashboard.app import serve

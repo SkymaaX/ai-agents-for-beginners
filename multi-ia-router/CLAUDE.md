@@ -35,6 +35,8 @@ vient avec son test.
 | Recherche web ou vault | `router/research/` |
 | Tableau de bord | API : `router/dashboard/app.py` ; page : `router/dashboard/static/` |
 | Diagnostic | `router/doctor.py` |
+| Outils complémentaires (catalogue, installation, état) | `router/toolbox/catalog.yaml` (faits vérifiés) + `core.py` + `cli.py` |
+| Voix de synthèse (VoiceStudio, MCP) | `router/agents/voicestudio.py` ; partie `audio` : `router/pipeline/parts.py` |
 
 ## Règles de conception à respecter
 
@@ -63,6 +65,15 @@ vient avec son test.
 - **Exécutant sans commandes par défaut.** `claude_code` n'a que des outils de fichiers ; c'est le
   routeur qui lance Blender (`router/tools/blender.py`). Ne pas ajouter `Bash` par défaut.
 
+- **Outils complémentaires.** Le catalogue ne contient que des faits relevés dans les fichiers officiels
+  du projet (README, compose, .env.example) ; ne rien y ajouter de mémoire. Un outil n'est `automatisé`
+  que si ses ports, variables et secrets sont vérifiés. Jamais de `curl | sh`, jamais `down`, `rm`, `-v`.
+  Les secrets sont générés, jamais affichés, un `.env` existant n'est jamais réécrit.
+- **Partie `audio`.** Elle lit le texte de la partie dont elle dépend (`depends_on`) ; si cette partie
+  change, `propagate_to_audio` la remet à refaire. Le relecteur ne peut pas écouter : ne pas lui demander.
+- **Client MCP.** Il lit le schéma annoncé par le serveur (`tools/list`) pour nommer les paramètres.
+  Le SDK `mcp` 2.x masque les codes HTTP : voir `_probe_status` pour distinguer clé refusée et panne.
+
 ## Tests
 
 - `tests/conftest.py::make_config` : config de simulation isolée dans un dossier temporaire.
@@ -70,6 +81,8 @@ vient avec son test.
   machine ne sont lus, et les variables de clés sont retirées de l'environnement.
 - `config.mock_scenario` force des situations (critique toujours négative, verdict en échec,
   panne, quota, JSON invalide) : voir l'en-tête de `router/agents/mock.py`.
+- `tests/test_voicestudio.py` lance un vrai serveur MCP en local (uvicorn) ; `tests/test_toolbox.py`
+  valide la surcharge Chatwoot avec le vrai `docker compose config` (ignoré si Docker est absent).
 - Agents réels testés contre de faux serveurs (`httpx.MockTransport`) et de faux binaires
   (`tests/fakes/fake_claude.py`, `tests/fakes/fake_blender.py`). Aucun test ne doit appeler un
   service réel ni dépenser de tokens.
@@ -78,4 +91,5 @@ vient avec son test.
 
 - AnythingLLM, Gemini, ComfyUI et Blender réels n'ont pas pu être testés à la construction
   (machine sans GPU ni clés) : seulement contre des faux. `claude -p` a été testé en réel.
+- Les images Docker des outils complémentaires n'ont jamais été lancées (pas de démon Docker à la construction).
 - Les noms de modèles Gemini de `config.yaml` sont à confirmer avec `doctor`.

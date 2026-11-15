@@ -133,3 +133,24 @@ def dependency_context(project: Project, plan: Plan, part: Part) -> list[tuple[s
             text = project.read_text(project.version_path(dep_id, version))
             blocks.append((f"Partie dont celle-ci dépend : {dep.title} ({dep_id}, version {version})", text))
     return blocks
+
+
+def propagate_to_audio(project: Project, plan: Plan, changed: list[str], rounds: int) -> list[str]:
+    """Une partie audio lit le texte d'une autre : si ce texte change, la narration doit être refaite.
+
+    Remet « à réviser » chaque partie audio dépendant d'une partie modifiée (et qui ne l'est pas
+    déjà). Renvoie les identifiants touchés.
+    """
+    changed_set = set(changed)
+    touched: list[str] = []
+    for part in plan.parts:
+        state = project.state.parts.get(part.id)
+        if part.type != "audio" or state is None or state.status == "removed" or part.id in changed_set:
+            continue
+        if any(dep in changed_set for dep in part.depends_on):
+            note = "Le texte à lire a changé : régénérer la narration."
+            state.instruction = (state.instruction + "\n" + note).strip() if note not in state.instruction else state.instruction
+            state.status = "to_revise"
+            state.max_rounds = rounds
+            touched.append(part.id)
+    return touched

@@ -27,7 +27,8 @@ from ..logs import logger, read_jsonl
 from ..pipeline import orchestrator
 from ..runtime import Runtime
 from ..schemas import GRID_LABELS
-from ..state import IMAGE_EXT, STAGE_LABELS, STAGES, Project, list_projects
+from ..state import AUDIO_EXT, IMAGE_EXT, STAGE_LABELS, STAGES, Project, list_projects
+from ..toolbox import Toolbox
 
 STATIC = Path(__file__).resolve().parent / "static"
 ROLE_LABELS = {
@@ -108,6 +109,7 @@ def file_entry(project: Project, path: Path) -> dict[str, Any]:
     return {
         "name": path.name, "url": f"/files/{project.id}/{relative}", "size": path.stat().st_size,
         "image": path.suffix.lower() in IMAGE_EXT,
+        "audio": path.suffix.lower() in AUDIO_EXT,
     }
 
 
@@ -174,7 +176,7 @@ class Revision(BaseModel):
     instruction: str
 
 
-def create_app(config: Config) -> FastAPI:
+def create_app(config: Config, toolbox: Toolbox | None = None) -> FastAPI:
     app = FastAPI(title="Routeur multi-IA", docs_url=None, redoc_url=None)
     threads: dict[str, threading.Thread] = {}
     open_to_network = config.dashboard.host in ("0.0.0.0", "::")
@@ -261,6 +263,20 @@ def create_app(config: Config) -> FastAPI:
             "review": config.review.model_dump(include={"max_rounds", "min_score"}),
             "max_returns": config.validation.max_returns,
         }
+
+    @app.get("/api/tools")
+    def tools() -> list[dict[str, Any]]:
+        """État des outils complémentaires. Lecture seule : démarrer ou installer se fait en ligne de commande."""
+        box = toolbox or Toolbox(config)
+        listing = []
+        for status in box.statuses():
+            spec = box.spec(status.id)
+            listing.append({
+                **status.as_dict(), "summary": spec.summary, "license": spec.license, "repo": spec.repo,
+                "needs": spec.needs, "warnings": spec.warnings, "automated": spec.automated,
+                "command": f"python -m router tools {'start' if spec.automated else 'install'} {spec.id}",
+            })
+        return listing
 
     @app.get("/api/projects")
     def projects() -> list[dict[str, Any]]:

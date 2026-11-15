@@ -10,7 +10,7 @@ const S = {
 
 const STATUS = { new: "nouveau", running: "en cours", paused: "en pause", failed: "échec", done: "terminé", stale: "interrompu" };
 const PART_STATUS = { pending: "à produire", produced: "en relecture", to_revise: "à réviser", accepted: "acceptée", arbitrated: "tranchée par le chef", removed: "retirée" };
-const TYPE = { text: "Texte", code: "Code", files: "Fichiers", blender: "Blender", image: "Image", video: "Vidéo" };
+const TYPE = { text: "Texte", code: "Code", files: "Fichiers", blender: "Blender", image: "Image", video: "Vidéo", audio: "Audio" };
 const ROLE = {
   "chef.reformulation": "reformule la demande", "repartiteur.plan": "découpe la demande en plan",
   "repartiteur.modification": "planifie la modification", "chercheur": "fait la recherche",
@@ -55,6 +55,8 @@ async function init() {
   $("launch").addEventListener("click", launch);
   $("call-close").addEventListener("click", () => $("call-dialog").close());
   await loadProjects();
+  loadTools();
+  setInterval(loadTools, 15000);
   const wanted = location.hash.slice(1);
   if (wanted && S.projects.some((p) => p.id === wanted)) openProject(wanted);
   setInterval(loadProjects, 5000);
@@ -72,6 +74,19 @@ async function loadProjects() {
       <span><span class="title">${esc(p.title)}</span><span class="sub">${esc(sub)}</span></span></button></li>`;
   }).join("");
   box.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => openProject(b.dataset.id)));
+}
+
+async function loadTools() {
+  let tools;
+  try { tools = await api("/api/tools"); } catch (_) { return; }
+  const box = $("tools");
+  if (!box) return;
+  box.innerHTML = tools.map((t) => {
+    const dot = t.state === "en marche" ? "on" : t.state === "installé" ? "half" : "off";
+    const hint = t.state === "en marche" ? `remplace ${t.replaces}` : `remplace ${t.replaces} · ${t.state}`;
+    const open = t.up && t.url ? `<a class="open" href="${esc(t.url)}" target="_blank" rel="noopener">Ouvrir</a>` : `<span class="state"></span>`;
+    return `<li title="${esc(t.summary)} — ${esc(t.command)}"><span class="dot ${dot}"></span><span class="name">${esc(t.name)}<span class="sub">${esc(hint)}</span></span>${open}</li>`;
+  }).join("");
 }
 
 async function launch() {
@@ -332,7 +347,9 @@ async function renderPart() {
     if (S.part !== part.id) return;
   }
   const content = S.cache[key];
-  const files = version.files.length ? `<div class="box"><h4>Fichiers de cette version</h4><div class="files">${version.files.map((f) => f.image
+  const files = version.files.length ? `<div class="box"><h4>Fichiers de cette version</h4><div class="files">${version.files.map((f) => f.audio
+    ? `<span class="audiofile"><audio controls preload="none" src="${esc(f.url)}"></audio><span class="muted small">${esc(f.name)}</span></span>`
+    : f.image
     ? `<a class="thumb" href="${esc(f.url)}" target="_blank" rel="noopener"><img src="${esc(f.url)}" alt="${esc(f.name)}"></a>`
     : `<a class="file" href="${esc(f.url)}" target="_blank" rel="noopener">${esc(f.name)} <span class="muted">(${num(f.size)} o)</span></a>`).join("")}</div></div>` : "";
   box.innerHTML = `${brief}

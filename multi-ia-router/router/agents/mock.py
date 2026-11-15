@@ -24,6 +24,23 @@ from .base import (
 )
 
 
+def write_wav(path: Path, seconds: float = 1.0, rate: int = 16000) -> Path:
+    """Écrit un WAV valide (un la à 440 Hz) avec la bibliothèque standard."""
+    import math
+    import wave
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    frames = b"".join(
+        struct.pack("<h", int(8000 * math.sin(2 * math.pi * 440 * i / rate))) for i in range(int(seconds * rate))
+    )
+    with wave.open(str(path), "wb") as handle:
+        handle.setnchannels(1)
+        handle.setsampwidth(2)
+        handle.setframerate(rate)
+        handle.writeframes(frames)
+    return path
+
+
 def write_png(path: Path, width: int = 320, height: int = 200, seed: int = 0) -> Path:
     """Écrit un PNG dégradé sans bibliothèque externe (image factice mais valide)."""
     rows = bytearray()
@@ -51,7 +68,7 @@ def write_png(path: Path, width: int = 320, height: int = 200, seed: int = 0) ->
 
 class MockAgent(Agent):
     type_name = "mock"
-    default_capabilities = frozenset({"text", "vision", "image", "video", "files"})
+    default_capabilities = frozenset({"text", "vision", "image", "video", "audio", "files"})
     native_json = True
 
     def __init__(self, name, cfg, runtime, stands_for: type[Agent] | None = None):
@@ -121,6 +138,8 @@ class MockAgent(Agent):
             text, files = self._image(task)
         elif task.kind == "video":
             text, files = self._video(task)
+        elif task.kind == "audio":
+            text, files = self._audio(task)
         elif task.kind == "files":
             text, files = self._files(task)
         else:
@@ -191,6 +210,14 @@ class MockAgent(Agent):
                 "prompt": "Illustration sobre et moderne représentant le sujet du projet, format paysage.",
                 "success_criteria": ["Image lisible", "En rapport avec le sujet"],
                 "expected_output": {"format": "png", "filename": "couverture.png"},
+            })
+        voice = pick("audio")
+        if voice and text_agents:
+            parts.append({
+                "id": "p5", "title": "Narration audio", "type": "audio", "agent": voice, "depends_on": ["p1"],
+                "prompt": "Lis à voix haute le texte de la partie p1.",
+                "success_criteria": ["Fichier audio présent", "Le texte lu est celui de la partie p1"],
+                "expected_output": {"format": "wav", "filename": "narration.wav"},
             })
         if scenario.get("bad_plan_once") and self._count("bad_plan") == 1 and parts:
             parts[0] = {**parts[0], "agent": "agent_inexistant"}
@@ -315,6 +342,12 @@ class MockAgent(Agent):
         name = task.meta.get("filename") or "image.png"
         path = write_png(workdir / name, seed=int(task.meta.get("version", 1)))
         return f"Image simulée générée par {self.name} : {name}\nPrompt : {task.prompt[:200]}", [path]
+
+    def _audio(self, task: AgentTask) -> tuple[str, list[Path]]:
+        workdir = task.workdir or Path(".")
+        name = task.meta.get("filename") or "narration.wav"
+        path = write_wav(workdir / name, seconds=min(5.0, 0.5 + len(task.prompt) / 400))
+        return f"Narration simulée par {self.name} : {name}\nTexte lu : {task.prompt[:200]}", [path]
 
     def _video(self, task: AgentTask) -> tuple[str, list[Path]]:
         workdir = task.workdir or Path(".")

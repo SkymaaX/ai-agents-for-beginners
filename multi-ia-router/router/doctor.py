@@ -276,6 +276,20 @@ def run_doctor(config: Config, write: bool = False) -> int:
             if text.startswith(BAD):
                 todo.append(f"{name} : {text[2:].strip()}")
 
+    section("Outils complémentaires")
+    try:
+        from .toolbox import Toolbox
+
+        for status in Toolbox(config).statuses():
+            mark = {"en marche": OK, "installé": INFO, "absent": INFO, "manuel": INFO}[status.state]
+            where = f" — {status.url}" if status.state == "en marche" else ""
+            line(mark, f"{status.name} ({status.replaces}) : {status.state}{where}")
+            if status.id == "voicestudio" and status.up:
+                found.setdefault("agents", {}).setdefault("voix", {})["enabled"] = True
+        line(INFO, "Détail et installation : python -m router tools list")
+    except RouterError as exc:
+        line(BAD, str(exc))
+
     section("Recherche")
     research = config.research
     if research.vault.enabled:

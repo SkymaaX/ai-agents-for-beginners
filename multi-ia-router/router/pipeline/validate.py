@@ -6,7 +6,7 @@ from ..agents.base import ROLE_VALIDATE, AgentTask, ask_json
 from ..prompts import bullets
 from ..runtime import Runtime
 from ..schemas import Verdict
-from .common import active_parts, load_brief, prompt, system
+from .common import active_parts, load_brief, prompt, propagate_to_audio, system
 
 
 def run(rt: Runtime) -> None:
@@ -74,6 +74,7 @@ def run(rt: Runtime) -> None:
             part_state.max_rounds = cfg.review.rounds_after_return
         else:
             assembly_notes.append(f"{gap.description} — {gap.instruction}")
+    propagate_to_audio(project, plan, [g.part_id for g in verdict.gaps if g.part_id in part_ids], cfg.review.rounds_after_return)
     # Les parties corrigées changent : l'assembleur doit toujours savoir pourquoi il repasse.
     state.assembly_instruction = "\n".join(
         assembly_notes or [f"Parties corrigées après contrôle du chef : {verdict.summary}"]

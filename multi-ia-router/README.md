@@ -13,17 +13,18 @@ Pensé pour de gros projets occasionnels : la qualité passe avant le temps et l
 1. [Architecture](#architecture)
 2. [Installation](#installation)
 3. [Préparer les outils](#préparer-les-outils)
-4. [Configuration](#configuration)
-5. [Lancement](#lancement)
-6. [Exemple complet de bout en bout](#exemple-complet-de-bout-en-bout)
-7. [Modifier un projet sans tout refaire](#modifier-un-projet-sans-tout-refaire)
-8. [Le dossier d'un projet](#le-dossier-dun-projet)
-9. [Claude : API ou Claude Code headless](#claude--api-ou-claude-code-headless)
-10. [Recherche, VRAM, sécurité](#recherche-vram-sécurité)
-11. [Ajouter un agent](#ajouter-un-agent)
-12. [Tests](#tests)
-13. [Dépannage](#dépannage)
-14. [Ce qui a été vérifié, ce qui reste à vérifier chez toi](#ce-qui-a-été-vérifié-ce-qui-reste-à-vérifier-chez-toi)
+4. [Outils complémentaires (7 alternatives gratuites)](#outils-complémentaires-7-alternatives-gratuites)
+5. [Configuration](#configuration)
+6. [Lancement](#lancement)
+7. [Exemple complet de bout en bout](#exemple-complet-de-bout-en-bout)
+8. [Modifier un projet sans tout refaire](#modifier-un-projet-sans-tout-refaire)
+9. [Le dossier d'un projet](#le-dossier-dun-projet)
+10. [Claude : API ou Claude Code headless](#claude--api-ou-claude-code-headless)
+11. [Recherche, VRAM, sécurité](#recherche-vram-sécurité)
+12. [Ajouter un agent](#ajouter-un-agent)
+13. [Tests](#tests)
+14. [Dépannage](#dépannage)
+15. [Ce qui a été vérifié, ce qui reste à vérifier chez toi](#ce-qui-a-été-vérifié-ce-qui-reste-à-vérifier-chez-toi)
 
 ## Architecture
 
@@ -166,6 +167,64 @@ agents:
 
 Le workflow fourni convient à SDXL / Stable Diffusion. Pour Flux, exporte ton propre workflow au format API depuis ComfyUI, remplace le texte du prompt par `{{prompt}}`, et indique son chemin dans `agents.comfyui.workflow`.
 
+## Outils complémentaires (7 alternatives gratuites)
+
+Sept outils open source qui remplacent des abonnements payants sont rangés dans le routeur. **Rien ne s'installe ni ne démarre tout seul** : tu choisis, outil par outil.
+
+| Outil | Remplace | Installation | Dans le routeur |
+|---|---|---|---|
+| [VoiceStudio](https://github.com/debpalash/VoiceStudio) | ElevenLabs | automatique (Docker) | **Branché** : agent `voix`, parties de type `audio` |
+| [OpenSEO](https://github.com/every-app/open-seo) | Semrush | automatique (Docker) | Non branché (voir plus bas) |
+| [Cap](https://github.com/CapSoftware/Cap) | Loom | automatique (Docker) | Outil autonome |
+| [Chatwoot](https://github.com/chatwoot/chatwoot) | Intercom | automatique (Docker) | Outil autonome |
+| [Cal.diy](https://github.com/calcom/cal.diy) | Calendly | manuelle | Outil autonome |
+| [AppFlowy](https://github.com/AppFlowy-IO/AppFlowy) | Notion | manuelle (application de bureau) | Outil autonome |
+| [Open Generative AI](https://github.com/Anil-matcha/Open-Generative-AI) | Higgsfield | manuelle (application de bureau) | Outil autonome |
+
+```bash
+python -m router tools list                    # état de chaque outil (● en marche, ◐ installé, ○ absent, · manuel)
+python -m router tools status voicestudio      # détail : dépôt, licence, prérequis, avertissements
+python -m router tools install --all --dry-run # montre ce qui serait fait, sans rien exécuter
+python -m router tools install voicestudio     # prépare (télécharge l'image, écrit les secrets)
+python -m router tools start voicestudio       # démarre
+python -m router tools stop voicestudio        # arrête (les données sont conservées)
+```
+
+Le tableau de bord affiche leur état en direct (panneau « Outils complémentaires », bouton « Ouvrir » quand un outil répond).
+
+### Ce que fait (et ne fait pas) l'installation
+
+- Il faut **Docker** (Docker Desktop sous Windows et macOS) et **Git**. `docker compose` doit être en version 2.24 ou plus (Chatwoot).
+- Les dépôts sont clonés depuis l'adresse officielle dans `~/.multi-ia-router/tools/<outil>` (réglable : `tools.dir`).
+- Les mots de passe sont **générés aléatoirement** et écrits dans des fichiers à accès réservé. Ils ne sont jamais affichés. Un `.env` existant n'est **jamais** réécrit : changer le mot de passe d'une base déjà créée la casserait.
+- Les ports sont décalés pour ne pas se gêner entre eux ni avec AnythingLLM (3001) : VoiceStudio 3900, OpenSEO 3011, Cap 3020, Chatwoot 3030 (réglable : `tools.ports`). Cal.diy publie le port 3000 en dur.
+- Avant tout démarrage, la configuration est validée (`docker compose config`).
+- `stop` arrête sans rien supprimer. Le routeur n'exécute jamais `down`, `rm`, `prune` ni `-v`.
+- Aucun script distant (`curl … | sh`) n'est lancé : VoiceStudio passe par son image Docker.
+- Plusieurs outils lancés ensemble consomment beaucoup de mémoire (Chatwoot, Cap et OpenSEO ont chacun 4 à 5 conteneurs) : démarre ceux dont tu as besoin.
+
+### VoiceStudio : la voix dans le routeur
+
+```bash
+python -m router tools install voicestudio     # ajoute --gpu pour une carte NVIDIA
+python -m router tools start voicestudio
+python -m router doctor --write                # détecte le serveur et active l'agent `voix`
+```
+
+L'agent `voix` (désactivé tant que VoiceStudio n'est pas installé) lit un texte à voix haute. Dans un plan, une partie de type `audio` **dépend d'une partie `text`** qui rédige le script : c'est ce texte, nettoyé du Markdown et des renvois de sources, qui est lu. Quand le script est révisé (par la critique ou par une modification demandée), la narration est refaite automatiquement. Le relecteur, d'une autre famille que la voix, juge le texte lu : il ne peut pas écouter le fichier, et le prompt de critique le lui dit. Le lecteur audio est dans l'onglet « Plan et parties » du tableau de bord.
+
+Pour une voix clonée : crée le profil dans l'interface de VoiceStudio (`http://127.0.0.1:3900`), puis renseigne son identifiant dans `agents.voix.voice` de `config.local.yaml`. Le clonage de voix exige l'accord de la personne concernée.
+
+### Pourquoi les autres ne sont pas branchés
+
+Brancher un outil sans API documentée reviendrait à inventer son contrat : il casserait en silence. Chaque point ci-dessous a été relevé dans les fichiers officiels.
+
+- **OpenSEO** : exige une clé **DataForSEO, payante à la requête** (le logiciel, lui, est gratuit). Il expose un serveur MCP, mais la façon d'y envoyer une clé n'est pas documentée. À brancher comme source de recherche quand tu auras ton compte.
+- **Cap, Chatwoot, Cal.diy, AppFlowy** : aucune API utile au pipeline. Ce sont des outils que tu ouvres toi-même.
+- **Open Generative AI** : par défaut, la génération passe par le service cloud **payant** Muapi.ai. Le local n'existe que dans l'application de bureau, sans API locale documentée. Pour des images locales pilotées par le routeur, utilise **ComfyUI** (déjà intégré). Ses installeurs sont non signés et le README demande de désactiver des protections système (SmartScreen, Gatekeeper, AppArmor) : le routeur ne le fait pas à ta place.
+- **AppFlowy** : seule l'application de bureau est proposée. Son auto-hébergement n'est pas retenu : le dépôt AppFlowy-Cloud est archivé depuis septembre 2026 et son successeur est sous licence commerciale.
+- **Cal.diy** : non automatisé, son README le déclare « strictement recommandé pour un usage personnel, hors production ».
+
 ## Configuration
 
 Deux fichiers :
@@ -241,6 +300,7 @@ python -m router status <projet>               # détail d'un projet
 python -m router resume <projet>               # reprend un projet arrêté
 python -m router revise <projet> "Consigne"    # modifie un projet terminé
 python -m router --mock run "Ma demande"       # simulation complète
+python -m router tools list                    # outils complémentaires (voir plus haut)
 ```
 
 `<projet>` accepte l'identifiant complet, un mot de la demande ou du titre s'il ne désigne qu'un projet (par exemple `potager`), ou `dernier` pour le plus récent. Un projet lancé en ligne de commande apparaît aussi dans le tableau de bord.
@@ -480,9 +540,11 @@ Ce projet a été construit et testé sur une machine sans carte graphique, sans
 
 Vérifié :
 
-- 113 tests automatiques, tous verts.
+- 170 tests automatiques, tous verts.
 - Le pipeline complet, la reprise et la modification ciblée, en simulation, en ligne de commande et dans un vrai navigateur.
 - L'agent `claude_cli` avec le vrai Claude Code : critique au format JSON, plan JSON, écriture de fichiers par l'exécutant.
+- L'agent `voix` contre un **vrai serveur MCP** local (protocole réel, clé en `Bearer`, deux variantes de noms de paramètres).
+- La surcharge Docker de Chatwoot, validée par le vrai `docker compose config`.
 
 À vérifier sur ton PC, parce que cela n'a pu être testé que contre des faux serveurs :
 
@@ -490,5 +552,7 @@ Vérifié :
 - Gemini : les noms de modèles de `config.yaml` sont à confirmer avec `doctor`, et l'accès image/vidéo dépend de ta clé.
 - Blender et ComfyUI réels, et le déchargement de la VRAM selon ton moteur (Ollama ou LM Studio).
 - L'export vers la vault.
+- Les installations Docker des quatre outils automatisables, qui n'ont pas pu être exécutées (le conteneur de construction n'a pas de démon Docker) : la mécanique est testée avec de faux binaires et une validation de configuration réelle, pas avec les vraies images. Le contrat exact de `generate_speech` de VoiceStudio n'est pas publié sous forme de schéma : l'agent lit celui que le serveur annonce, à confirmer avec `python -m router doctor` une fois VoiceStudio démarré.
+- L'étape d'initialisation de Chatwoot (`db:chatwoot_prepare`), relevée dans la documentation d'installation sans pouvoir lire le site officiel.
 
 Commence par `python -m router doctor`, puis un petit projet réel avant un gros.

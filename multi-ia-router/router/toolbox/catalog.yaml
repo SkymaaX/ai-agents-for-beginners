@@ -1,0 +1,209 @@
+# Catalogue des outils complémentaires (7 alternatives gratuites open source à des abonnements).
+# Chaque fait ci-dessous a été relevé dans le README ou les fichiers compose officiels du projet.
+# Rien n'est installé sans commande explicite : `python -m router tools install <outil>`.
+# kind : container (docker create) | compose (git clone + docker compose) | manual (étapes à faire soi-même)
+
+voicestudio:
+  name: VoiceStudio
+  replaces: ElevenLabs
+  summary: Synthèse vocale et clonage de voix, 100 % local, sans compte.
+  repo: https://github.com/debpalash/VoiceStudio
+  license: AGPL-3.0
+  kind: container
+  port: 3900
+  url: "http://127.0.0.1:{port}"
+  health: /health
+  health_strict: true
+  image: ghcr.io/debpalash/voicestudio:stable
+  container: multi-ia-voicestudio
+  volume: omnivoice-data
+  disk: "environ 10 Go (image + modèles, dont ~2,4 Go téléchargés au premier usage)"
+  needs: [Docker]
+  verified: README + docs/mcp.md + docs/install/docker.md
+  router: >-
+    Branché : agent `voix` (type voicestudio). Une partie de type « audio » est lue par la voix
+    de synthèse via le serveur MCP de VoiceStudio (http://127.0.0.1:3900/mcp/).
+  warnings:
+    - "Image CPU par défaut. Pour une carte NVIDIA : `tools install voicestudio --gpu` (NVIDIA Container Toolkit requis)."
+    - "Les modèles ont leurs propres licences. Le clonage de voix exige l'accord de la personne clonée."
+    - "Les scripts `curl ... | sh` du projet ne sont volontairement pas utilisés : l'installation passe par l'image Docker."
+
+openseo:
+  name: OpenSEO
+  replaces: Semrush
+  summary: Recherche de mots-clés, suivi de positions, backlinks, audit de site.
+  repo: https://github.com/every-app/open-seo
+  license: MIT
+  kind: compose
+  git: https://github.com/every-app/open-seo.git
+  compose_file: deploy/standalone/compose.yaml
+  env_file: deploy/standalone/.env
+  env_template: deploy/standalone/.env.example
+  port: 3011
+  url: "http://127.0.0.1:{port}"
+  health: /api/health
+  secrets: {access: 12, secret: 64, crawler: 64}
+  env:
+    STORAGE_ACCESS_KEY: "ops{access}"
+    STORAGE_SECRET_KEY: "{secret}"
+    CRAWLER_ACCESS_SECRET: "{crawler}"
+    BETTER_AUTH_URL: "http://localhost:{port}"
+    PORT: "{port}"
+  disk: "images Docker (5 conteneurs) ; Docker doit disposer d'au moins 4 Go de mémoire"
+  needs: [Docker, "clé DataForSEO (payante, à la requête)"]
+  verified: README + docs/SELF_HOSTING_DOCKER.md + deploy/standalone/compose.yaml + .env.example
+  router: >-
+    Non branché. Il expose un serveur MCP (/mcp) dont l'authentification par clé n'est pas
+    documentée. À brancher comme source de recherche une fois ton compte et ta clé créés.
+  warnings:
+    - "Gratuit côté logiciel, mais les données SEO viennent de DataForSEO, facturé à la requête : DATAFORSEO_API_KEY à renseigner dans le fichier .env de l'outil."
+    - "Port 3001 par défaut, déjà pris par AnythingLLM : le routeur le place sur 3011."
+    - "Le premier compte créé devient administrateur et ferme les inscriptions. AUTH_MODE=local_noauth est à proscrire hors réseau privé."
+    - "`docker compose down -v` supprimerait toutes les données : le routeur n'utilise que `stop`."
+
+cap:
+  name: Cap
+  replaces: Loom
+  summary: Enregistrement d'écran avec lien de partage instantané.
+  repo: https://github.com/CapSoftware/Cap
+  license: AGPL-3.0 (crates de capture sous MIT)
+  kind: compose
+  git: https://github.com/CapSoftware/Cap.git
+  compose_file: docker-compose.yml
+  env_file: .env
+  port: 3020
+  url: "http://127.0.0.1:{port}"
+  health: /
+  secrets: {mysql: 24, mysql_root: 24, minio: 24, dbkey: 64, auth: 64, hook: 64}
+  env:
+    CAP_PORT: "{port}"
+    CAP_URL: "http://localhost:{port}"
+    MYSQL_PASSWORD: "{mysql}"
+    MYSQL_ROOT_PASSWORD: "{mysql_root}"
+    MINIO_ROOT_USER: "capadmin"
+    MINIO_ROOT_PASSWORD: "{minio}"
+    DATABASE_ENCRYPTION_KEY: "{dbkey}"
+    NEXTAUTH_SECRET: "{auth}"
+    MEDIA_SERVER_WEBHOOK_SECRET: "{hook}"
+  disk: "5 conteneurs ; le serveur média est compilé localement (premier démarrage long)"
+  needs: [Docker]
+  verified: README + docker-compose.yml
+  router: >-
+    Non branché : aucune API documentée. Outil autonome, ouvert depuis le tableau de bord.
+    L'application d'enregistrement se télécharge sur https://cap.so/download puis se règle sur
+    ton serveur (Réglages > Cap Server URL).
+  warnings:
+    - "Le compose officiel a des mots de passe par défaut connus : le routeur les remplace tous par des valeurs aléatoires."
+    - "Ports MinIO 9000 et 9001 gardés par défaut : à libérer si un autre MinIO tourne."
+    - "Licence AGPL-3.0 (copyleft réseau) si tu modifies et exposes le serveur."
+
+chatwoot:
+  name: Chatwoot
+  replaces: Intercom
+  summary: Boîte de réception unique pour chat, e-mail et réseaux sociaux.
+  repo: https://github.com/chatwoot/chatwoot
+  license: MIT
+  kind: compose
+  git: https://github.com/chatwoot/chatwoot.git
+  compose_file: docker-compose.production.yaml
+  env_file: .env
+  env_template: .env.example
+  port: 3030
+  url: "http://127.0.0.1:{port}"
+  health: /api
+  secrets: {secret_key: 128, redis: 24, pg: 24}
+  env:
+    SECRET_KEY_BASE: "{secret_key}"
+    REDIS_PASSWORD: "{redis}"
+    POSTGRES_PASSWORD: "{pg}"
+    FRONTEND_URL: "http://localhost:{port}"
+  # Le compose officiel publie 3000/5432/6379 et laisse POSTGRES_PASSWORD vide côté base :
+  # on remplace le port, on retire les ports de la base et de Redis, on fixe le mot de passe.
+  override: |
+    services:
+      rails:
+        ports: !override
+          - "127.0.0.1:{port}:3000"
+      postgres:
+        ports: !reset []
+        environment:
+          POSTGRES_PASSWORD: "{pg}"
+      redis:
+        ports: !reset []
+  first_start:
+    - [run, --rm, rails, bundle, exec, rails, "db:chatwoot_prepare"]
+  disk: "4 conteneurs (Rails, Sidekiq, PostgreSQL, Redis)"
+  needs: [Docker, "Docker Compose 2.24 ou plus"]
+  verified: docker-compose.production.yaml + .env.example + README (étape db:chatwoot_prepare d'après la doc d'installation, site officiel non lisible depuis le conteneur de construction)
+  router: >-
+    Non branché : l'API REST existe (/api/v1/accounts/<id>/...) mais n'a pas d'usage dans le
+    pipeline. Outil autonome, ouvert depuis le tableau de bord.
+  warnings:
+    - "Premier démarrage : initialisation de la base (quelques minutes). Les inscriptions sont fermées par défaut (ENABLE_ACCOUNT_SIGNUP=false) : crée le compte administrateur via la console Rails ou l'écran d'onboarding."
+    - "Pour recevoir de vrais e-mails, renseigne les variables SMTP dans le .env de l'outil."
+
+caldiy:
+  name: Cal.diy
+  replaces: Calendly
+  summary: Prise de rendez-vous, édition communautaire de Cal.com.
+  repo: https://github.com/calcom/cal.diy
+  license: MIT
+  kind: manual
+  port: 3000
+  url: "http://127.0.0.1:{port}"
+  health: /
+  disk: "Node + PostgreSQL ou Docker"
+  needs: [Docker, git]
+  verified: README + docker-compose.yml + .env.example
+  router: "Non branché : aucune API publique documentée. Outil autonome."
+  manual:
+    - "git clone --recursive https://github.com/calcom/cal.diy.git"
+    - "cd cal.diy && cp .env.example .env"
+    - "Dans .env : NEXTAUTH_SECRET=$(openssl rand -base64 32) et CALENDSO_ENCRYPTION_KEY=$(openssl rand -base64 24)"
+    - "docker compose up -d   (application sur http://localhost:3000)"
+    - "Windows : cloner avec Git Bash en administrateur : git clone -c core.symlinks=true ..., puis remplacer le lien packages/prisma/.env par une copie de .env"
+  warnings:
+    - "Non automatisé : le README le déclare « strictement recommandé pour un usage personnel, hors production », et son compose a des identifiants de base codés en dur (unicorn_user / magical_password) qui ne correspondent pas au DATABASE_URL de .env.example."
+    - "Il publie le port 3000 en dur : à lancer seul, ou à éteindre avant Cap/Chatwoot si tu changes leurs ports."
+
+appflowy:
+  name: AppFlowy
+  replaces: Notion
+  summary: Espace de notes et de projets (application de bureau, stockage local).
+  repo: https://github.com/AppFlowy-IO/AppFlowy
+  license: AGPL-3.0
+  kind: manual
+  download: https://github.com/AppFlowy-IO/AppFlowy/releases
+  disk: "application de bureau"
+  needs: []
+  verified: "README (application de bureau). Auto-hébergement non retenu : voir avertissements."
+  router: >-
+    Non branché : l'application de bureau n'a pas d'API. Idéal pour lire les livrables
+    Markdown du routeur (dossier projects/ ou copie dans la vault).
+  manual:
+    - "Télécharger l'installeur de ton système sur https://github.com/AppFlowy-IO/AppFlowy/releases (Windows, macOS, Linux)."
+    - "Linux : aussi disponible via Flathub (io.appflowy.AppFlowy) ou Snap."
+  warnings:
+    - "L'auto-hébergement (synchronisation multi-utilisateurs) n'est pas proposé : le dépôt AppFlowy-Cloud est archivé depuis septembre 2026 et son successeur est sous licence commerciale (gratuit pour un seul siège)."
+
+open_generative_ai:
+  name: Open Generative AI
+  replaces: Higgsfield
+  summary: Studio d'images, vidéos et lip-sync avec des centaines de modèles.
+  repo: https://github.com/Anil-matcha/Open-Generative-AI
+  license: MIT
+  kind: manual
+  download: https://github.com/Anil-matcha/Open-Generative-AI/releases
+  disk: "application de bureau ; modèles locaux de plusieurs Go"
+  needs: ["16 Go de RAM conseillés pour les modèles locaux"]
+  verified: README (installeurs, moteurs locaux). Pas d'API locale documentée.
+  router: >-
+    Non branché : l'application n'expose aucune API locale documentée. Pour des images
+    locales pilotées par le routeur, utilise ComfyUI (agent `comfyui`, déjà intégré).
+  manual:
+    - "Télécharger l'installeur sur https://github.com/Anil-matcha/Open-Generative-AI/releases (vérifie que le propriétaire est bien Anil-matcha : il existe de nombreuses copies au nom quasi identique)."
+    - "Au premier lancement, choisir les modèles LOCAUX si tu veux éviter le service cloud payant."
+  warnings:
+    - "Par défaut, la génération passe par le service cloud Muapi.ai (clé et crédits requis). Le local n'existe que dans l'application de bureau."
+    - "Installeurs non signés : le README demande de contourner SmartScreen (Windows), Gatekeeper (macOS : xattr -cr) et d'abaisser une protection AppArmor (Ubuntu 24.04+). Le routeur ne le fait pas à ta place."
+    - "Le projet se présente comme « sans filtre » : à toi d'évaluer."
