@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ..errors import ConfigError
+from ..runhint import CMD
 
 # Blender renvoie souvent 0 même quand le script Python a planté : on lit aussi la sortie.
 _ERROR_MARKERS = ("Traceback (most recent call last)", "Error: Python:", "SyntaxError:")
@@ -37,7 +38,7 @@ def resolve(binary: str | list[str]) -> list[str]:
     if not found:
         raise ConfigError(
             f"Blender introuvable (« {binary} »). Renseigne paths.blender_bin dans config.local.yaml "
-            "ou lance `python -m router doctor`."
+            f"ou lance `{CMD} doctor`."
         )
     return [found]
 

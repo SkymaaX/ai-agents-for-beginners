@@ -16,6 +16,7 @@ from ..logs import logger
 from ..runtime import Runtime
 from ..state import STAGES, Modification, Project, ProjectState, StageState
 from . import assemble, deliver, intake, plan, produce, replan, research, review, validate
+from ..runhint import CMD
 
 HANDLERS = {
     "intake": intake.run,
@@ -117,7 +118,7 @@ def find_project(config: Config, project_id: str) -> Project:
     if len(matches) == 1:
         return Project.load(matches[0])
     if not matches:
-        raise ConfigError(f"Projet introuvable : « {project_id} » (dans {root}). `python -m router list` affiche les projets.")
+        raise ConfigError(f"Projet introuvable : « {project_id} » (dans {root}). `{CMD} list` affiche les projets.")
     raise ConfigError(f"« {project_id} » correspond à plusieurs projets : {[m.name for m in matches]}")
 
 

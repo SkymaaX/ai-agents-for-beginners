@@ -24,6 +24,7 @@ import yaml
 from .config import Config
 from .errors import RouterError
 from .tools import blender as blender_tool
+from .runhint import CMD
 
 OK, BAD, INFO = "✓", "✗", "·"
 
@@ -286,7 +287,7 @@ def run_doctor(config: Config, write: bool = False) -> int:
             line(mark, f"{status.name} ({status.replaces}) : {status.state}{where}")
             if status.id == "voicestudio" and status.up:
                 found.setdefault("agents", {}).setdefault("voix", {})["enabled"] = True
-        line(INFO, "Détail et installation : python -m router tools list")
+        line(INFO, f"Détail et installation : {CMD} tools list")
     except RouterError as exc:
         line(BAD, str(exc))
 
@@ -328,7 +329,7 @@ def run_doctor(config: Config, write: bool = False) -> int:
             line(BAD, item)
     else:
         line(OK, "Rien de bloquant détecté.")
-    print("\n  Essai sans aucun appel réel : python -m router --mock run \"ma demande\"")
+    print(f"\n  Essai sans aucun appel réel : {CMD} --mock run \"ma demande\"")
 
     if write:
         written = write_local_config(config.root / "config.local.yaml", found)
@@ -339,7 +340,7 @@ def run_doctor(config: Config, write: bool = False) -> int:
         else:
             line(INFO, "rien à ajouter (déjà renseigné ou rien détecté)")
     elif found:
-        print("  Enregistrer les valeurs détectées : python -m router doctor --write")
+        print(f"  Enregistrer les valeurs détectées : {CMD} doctor --write")
     return 0
 
 

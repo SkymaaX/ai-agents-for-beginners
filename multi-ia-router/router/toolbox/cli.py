@@ -6,6 +6,7 @@ import sys
 
 from ..errors import ConfigError
 from .core import Toolbox
+from ..runhint import CMD
 
 STATE_MARK = {"en marche": "●", "installé": "◐", "absent": "○", "manuel": "·"}
 
@@ -34,7 +35,7 @@ def run_tools(config, args) -> int:
                     print(f"    ! {warning}")
         if action == "list":
             print("\n● en marche  ◐ installé  ○ absent  · manuel")
-            print("Détail : python -m router tools status <outil>   Installer : python -m router tools install <outil|--all>")
+            print(f"Détail : {CMD} tools status <outil>   Installer : {CMD} tools install <outil|--all>")
         return 0
 
     if action == "install":
@@ -53,8 +54,8 @@ def run_tools(config, args) -> int:
             print("\nOutils manuels (le routeur n'exécute rien pour eux) :")
             for tool_id in box.catalog:
                 if not box.spec(tool_id).automated:
-                    print(f"  - {box.spec(tool_id).name} : python -m router tools install {tool_id}")
-            print("\nRien n'est démarré. Démarrer un outil : python -m router tools start <outil>")
+                    print(f"  - {box.spec(tool_id).name} : {CMD} tools install {tool_id}")
+            print(f"\nRien n'est démarré. Démarrer un outil : {CMD} tools start <outil>")
         return 1 if failures else 0
 
     if action in ("start", "stop"):

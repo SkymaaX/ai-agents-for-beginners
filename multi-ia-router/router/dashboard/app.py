@@ -29,6 +29,7 @@ from ..runtime import Runtime
 from ..schemas import GRID_LABELS
 from ..state import AUDIO_EXT, IMAGE_EXT, STAGE_LABELS, STAGES, Project, list_projects
 from ..toolbox import Toolbox
+from ..runhint import CMD
 
 STATIC = Path(__file__).resolve().parent / "static"
 ROLE_LABELS = {
@@ -274,7 +275,7 @@ def create_app(config: Config, toolbox: Toolbox | None = None) -> FastAPI:
             listing.append({
                 **status.as_dict(), "summary": spec.summary, "license": spec.license, "repo": spec.repo,
                 "needs": spec.needs, "warnings": spec.warnings, "automated": spec.automated,
-                "command": f"python -m router tools {'start' if spec.automated else 'install'} {spec.id}",
+                "command": f"{CMD} tools {'start' if spec.automated else 'install'} {spec.id}",
             })
         return listing
 

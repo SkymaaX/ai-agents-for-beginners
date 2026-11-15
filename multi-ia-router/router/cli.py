@@ -19,6 +19,7 @@ from .config import load_config
 from .errors import RouterError
 from .logs import setup_logging
 from .state import STAGE_LABELS, STAGES, list_projects
+from .runhint import CMD
 
 STATUS_LABELS = {"new": "nouveau", "running": "en cours", "paused": "en pause", "failed": "échec", "done": "terminé"}
 
@@ -93,7 +94,7 @@ def _print_state(state, directory: Path | None = None) -> None:
             print(f"Livrable : {final}")
         print(f"Dossier  : {directory}")
     if state.status in ("paused", "failed"):
-        print(f"Reprendre : python -m router resume {state.id}")
+        print(f"Reprendre : {CMD} resume {state.id}")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -128,7 +129,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "run":
             request = Path(args.file).read_text(encoding="utf-8") if args.file else (args.request or "")
             if not request.strip():
-                print("Demande vide. Exemple : python -m router run \"Rédige un guide sur…\"", file=sys.stderr)
+                print(f"Demande vide. Exemple : {CMD} run \"Rédige un guide sur…\"", file=sys.stderr)
                 return 2
             state = orchestrator.start(config, request)
             _print_state(state, config.projects_dir / state.id)
@@ -161,6 +162,6 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Erreur : {exc}", file=sys.stderr)
         return 2
     except KeyboardInterrupt:
-        print("\nInterrompu. L'état est sauvegardé : `python -m router resume <projet>` pour reprendre.", file=sys.stderr)
+        print(f"\nInterrompu. L'état est sauvegardé : `{CMD} resume <projet>` pour reprendre.", file=sys.stderr)
         return 130
     return 0

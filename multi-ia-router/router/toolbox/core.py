@@ -26,6 +26,7 @@ import yaml
 from pydantic import BaseModel, Field
 
 from ..errors import ConfigError
+from ..runhint import CMD
 
 CATALOG_PATH = Path(__file__).with_name("catalog.yaml")
 OVERRIDE_NAME = "multi-ia.override.yaml"
@@ -288,7 +289,7 @@ class Toolbox:
             self._install_container(spec, gpu)
         else:
             self._install_compose(spec)
-        self.say(f"  ✓ prêt. Démarrer : python -m router tools start {spec.id}")
+        self.say(f"  ✓ prêt. Démarrer : {CMD} tools start {spec.id}")
 
     def _print_manual(self, spec: ToolSpec) -> None:
         self.say("  Installation manuelle (le routeur n'exécute rien pour cet outil) :")
@@ -372,7 +373,7 @@ class Toolbox:
             self.say(f"  {spec.name} répond déjà sur {self.url(spec)}.")
             return
         if not self.dry_run and self._installed(spec) is not True:
-            raise ConfigError(f"{spec.name} n'est pas installé : python -m router tools install {spec.id}")
+            raise ConfigError(f"{spec.name} n'est pas installé : {CMD} tools install {spec.id}")
         port = self.port(spec)
         if self.port_check(port) and not self.dry_run:
             raise ConfigError(

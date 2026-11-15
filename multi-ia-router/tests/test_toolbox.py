@@ -18,6 +18,7 @@ from fastapi.testclient import TestClient
 from router.cli import main
 from router.dashboard.app import create_app
 from router.errors import ConfigError
+from router.runhint import CMD
 from router.toolbox import Toolbox, load_catalog
 from router.toolbox.core import KEY_VAR, OVERRIDE_NAME, render_env
 
@@ -533,7 +534,7 @@ def test_cli_install_all_dry_run_lists_manual_tools(cli, capsys, monkeypatch):
     monkeypatch.setattr("router.toolbox.core.shutil.which", lambda name: f"/usr/bin/{name}")
     assert cli("tools", "install", "--all", "--dry-run") == 0
     out = capsys.readouterr().out
-    assert "Rien n'est démarré" in out and "Cal.diy : python -m router tools install caldiy" in out
+    assert "Rien n'est démarré" in out and f"Cal.diy : {CMD} tools install caldiy" in out
     commands = [line for line in out.splitlines() if line.startswith("  $ ")]
     assert commands and all(c.split()[1] in ("git", "docker") for c in commands)  # seules commandes lancées
     assert not any(re.search(r"curl|wget|\| *sh|iex|sudo", c) for c in commands)
@@ -556,8 +557,8 @@ def test_dashboard_lists_tools(make_config):
         by_id = {t["id"]: t for t in tools}
         assert set(by_id) == set(OFFICIAL)
         assert by_id["voicestudio"]["state"] == "en marche" and by_id["voicestudio"]["up"] and by_id["voicestudio"]["url"] == "http://127.0.0.1:3900"
-        assert by_id["openseo"]["state"] == "absent" and by_id["openseo"]["command"] == "python -m router tools start openseo"
-        assert by_id["caldiy"]["command"] == "python -m router tools install caldiy" and by_id["caldiy"]["automated"] is False
+        assert by_id["openseo"]["state"] == "absent" and by_id["openseo"]["command"] == f"{CMD} tools start openseo"
+        assert by_id["caldiy"]["command"] == f"{CMD} tools install caldiy" and by_id["caldiy"]["automated"] is False
         assert "Branché" in by_id["voicestudio"]["router"] and by_id["openseo"]["warnings"]
         page = client.get("/").text
         assert 'id="tools"' in page and "Outils complémentaires" in page
@@ -566,3 +567,15 @@ def test_dashboard_lists_tools(make_config):
 def test_catalog_yaml_is_valid_utf8_yaml():
     raw = Path(__file__).resolve().parent.parent / "router" / "toolbox" / "catalog.yaml"
     assert len(yaml.safe_load(raw.read_text(encoding="utf-8"))) == 9
+
+
+def test_help_messages_never_suggest_a_bare_python_command(box_factory, capsys):
+    """Sous Linux, `python` n'existe souvent pas : chaque conseil affiché doit passer par `routeur`."""
+    box = box_factory()
+    box.install("voicestudio")
+    box.install("caldiy")
+    with pytest.raises(ConfigError) as info:
+        box_factory().start("cap")
+    shown = "\n".join(box.lines) + str(info.value)
+    assert "python -m router" not in shown and CMD in shown
+    assert CMD == ("routeur" if sys.platform == "win32" else "./routeur")

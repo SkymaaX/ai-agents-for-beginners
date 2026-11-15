@@ -26,6 +26,7 @@ from typing import Any
 
 from ..errors import AgentError, AgentTimeout, ConfigError
 from .base import Agent, AgentResult, AgentTask, Usage
+from ..runhint import CMD
 
 TEXT_PARAMS = ("text", "input", "prompt", "content", "script")
 VOICE_PARAMS = ("profile_id", "voice_id", "voice", "speaker")
@@ -172,7 +173,7 @@ class VoiceStudioAgent(Agent):
             if "ConnectError" in name or isinstance(leaf, ConnectionError):
                 return AgentError(
                     f"VoiceStudio injoignable à {self.endpoint}. Est-il démarré ? "
-                    "python -m router tools start voicestudio", retryable=True,
+                    f"{CMD} tools start voicestudio", retryable=True,
                 )
             status = getattr(getattr(leaf, "response", None), "status_code", None) or getattr(leaf, "status_code", None)
             if status is None and name == "MCPError":
