@@ -29,6 +29,8 @@ OFFICIAL = {
     "caldiy": "calcom/cal.diy",
     "appflowy": "AppFlowy-IO/AppFlowy",
     "open_generative_ai": "Anil-matcha/Open-Generative-AI",
+    "openproject": "opf/openproject",
+    "openwhispr": "OpenWhispr/openwhispr",
 }
 # Ports que le routeur et ses outils habituels occupent déjà.
 RESERVED_PORTS = {3001: "AnythingLLM", 8765: "tableau de bord", 8188: "ComfyUI", 11434: "Ollama", 1234: "LM Studio", 8080: "SearXNG"}
@@ -91,7 +93,16 @@ volumes:
   redis_data:
 """
 
+OPENPROJECT_ENV = """TAG=17-slim
+PORT=127.0.0.1:8080
+OPENPROJECT_HTTPS=false
+OPENPROJECT_HOST__NAME=localhost:8080
+COLLABORATIVE_SERVER_SECRET=secret12345
+POSTGRES_PASSWORD=p4ssw0rd
+"""
+
 REPOS = {
+    "https://github.com/opf/openproject-docker-compose.git": {".env.example": OPENPROJECT_ENV, "docker-compose.yml": "services: {}\n"},
     "https://github.com/every-app/open-seo.git": {"deploy/standalone/.env.example": OPENSEO_ENV, "deploy/standalone/compose.yaml": "services: {}\n"},
     "https://github.com/CapSoftware/Cap.git": {"docker-compose.yml": "services: {}\n"},
     "https://github.com/chatwoot/chatwoot.git": {".env.example": CHATWOOT_ENV, "docker-compose.production.yaml": CHATWOOT_COMPOSE},
@@ -147,10 +158,26 @@ def box_factory(make_config, tmp_path, monkeypatch):
 
 
 # ───────────────────────────────────────────────────────────────────────────── catalogue
-def test_catalog_has_the_seven_tools_from_the_video():
+def test_catalog_has_the_nine_tools_from_the_two_videos():
     catalog = load_catalog()
     assert set(catalog) == set(OFFICIAL)
-    assert {s.replaces for s in catalog.values()} == {"ElevenLabs", "Semrush", "Loom", "Intercom", "Calendly", "Notion", "Higgsfield"}
+    assert {s.replaces for s in catalog.values()} == {
+        "ElevenLabs", "Semrush", "Loom", "Intercom", "Calendly", "Notion", "Higgsfield", "Asana", "Wispr Flow",
+    }
+
+
+def test_no_tool_is_listed_twice():
+    """La deuxième vidéo reprenait 7 outils de la première sous d'autres noms : aucun doublon."""
+    catalog = load_catalog()
+    repos = [s.repo.lower() for s in catalog.values()]
+    assert len(repos) == len(set(repos))
+    replaced = [s.replaces for s in catalog.values()]
+    assert len(replaced) == len(set(replaced))  # un seul outil par abonnement remplacé
+    names = {s.name.lower() for s in catalog.values()}
+    for spec in catalog.values():
+        assert not ({a.lower() for a in spec.aka} & names), spec.id  # un alias ne doit pas être un autre outil
+    # « OpenHiggsfield » (2e vidéo) est l'ancien nom d'Open Generative AI (1re vidéo)
+    assert {"OpenHiggsfield AI", "Open-Higgsfield-AI"} <= set(catalog["open_generative_ai"].aka)
 
 
 def test_every_repo_is_the_official_owner():
@@ -158,12 +185,16 @@ def test_every_repo_is_the_official_owner():
     for tool_id, spec in load_catalog().items():
         assert spec.repo == f"https://github.com/{OFFICIAL[tool_id]}", tool_id
         if spec.git:
-            assert spec.git == spec.repo + ".git", tool_id
+            # Le dépôt d'installation est chez le même propriétaire (parfois un dépôt voisin : OpenProject).
+            assert spec.git.split("/")[3] == spec.repo.split("/")[3], tool_id
+            assert spec.git.startswith("https://github.com/") and spec.git.endswith(".git"), tool_id
+    assert load_catalog()["openproject"].git == "https://github.com/opf/openproject-docker-compose.git"
+    assert load_catalog()["openproject"].git_branch == "stable/17"
 
 
 def test_only_verified_recipes_are_automated():
     automated = {t for t, s in load_catalog().items() if s.automated}
-    assert automated == {"voicestudio", "openseo", "cap", "chatwoot"}
+    assert automated == {"voicestudio", "openseo", "cap", "chatwoot", "openproject"}
     manual = {t: s for t, s in load_catalog().items() if not s.automated}
     assert all(s.manual or s.download for s in manual.values()) and all(s.warnings for s in manual.values())
 
@@ -280,6 +311,24 @@ def test_chatwoot_override_is_accepted_by_real_docker_compose(box_factory, tmp_p
     assert services["postgres"]["environment"]["POSTGRES_DB"] == "chatwoot"  # le reste est conservé
 
 
+def test_openproject_install_binds_locally_and_avoids_sudo(box_factory, tmp_path):
+    box = box_factory()
+    box.install("openproject")
+    target = tmp_path / "tools" / "openproject"
+    assert box.runner.commands == [
+        f"git clone --depth 1 --branch stable/17 https://github.com/opf/openproject-docker-compose.git {target}",
+        "docker compose -f docker-compose.yml config --quiet",
+    ]
+    env = dict(line.split("=", 1) for line in (target / ".env").read_text(encoding="utf-8").splitlines() if "=" in line)
+    assert env["PORT"] == "127.0.0.1:8088" and env["OPENPROJECT_HOST__NAME"] == "localhost:8088"  # l'hôte doit suivre le port
+    assert env["OPENPROJECT_HTTPS"] == "false" and env["OPDATA"] == "opdata"  # volume nommé : pas de dossier système
+    assert re.fullmatch(r"[0-9a-f]{64}", env["SECRET_KEY_BASE"]) and re.fullmatch(r"[0-9a-f]{32}", env["COLLABORATIVE_SERVER_SECRET"])
+    assert env["COLLABORATIVE_SERVER_SECRET"] != "secret12345"  # le secret d'exemple du projet est remplacé
+    assert env["POSTGRES_PASSWORD"] == "p4ssw0rd"  # laissé tel quel : DATABASE_URL en dépend
+    assert not any("sudo" in c or "/var/openproject" in c for c in box.runner.commands)
+    assert box.url(box.spec("openproject")) == "http://localhost:8088"  # même hôte que OPENPROJECT_HOST__NAME
+
+
 def test_voicestudio_install_creates_a_local_only_container_and_keeps_the_key_private(box_factory, tmp_path):
     box = box_factory()
     box.install("voicestudio")
@@ -312,11 +361,12 @@ def test_voicestudio_gpu_flag_and_existing_container(box_factory):
 def test_manual_tools_never_run_anything(box_factory):
     runner = FakeRunner()
     box = box_factory(runner=runner)
-    for tool_id in ("caldiy", "appflowy", "open_generative_ai"):
+    for tool_id in ("caldiy", "appflowy", "open_generative_ai", "openwhispr"):
         box.install(tool_id)
     assert runner.calls == []
     text = "\n".join(box.lines)
     assert "Installation manuelle" in text and "Muapi.ai" in text and "archivé" in text and "usage personnel" in text
+    assert "ta propre clé" in text and "brew install --cask openwhispr" in text
     for method in (box.start, box.stop):
         with pytest.raises(ConfigError, match="outil manuel"):
             method("caldiy")
@@ -383,7 +433,7 @@ def test_start_is_a_no_op_when_already_running(box_factory):
 def test_nothing_in_the_lifecycle_deletes_data(box_factory):
     """Vérifié sur la structure des commandes : seuls ces verbes existent, aucun ne supprime."""
     box = box_factory()
-    for tool_id in ("voicestudio", "openseo", "cap", "chatwoot"):
+    for tool_id in ("voicestudio", "openseo", "cap", "chatwoot", "openproject"):
         box.install(tool_id)
         box.start(tool_id)
         box.stop(tool_id)
@@ -452,7 +502,7 @@ def cli(monkeypatch, tmp_path):
 def test_cli_list_and_status(cli, capsys):
     assert cli("tools", "list") == 0
     out = capsys.readouterr().out
-    for name in ("VoiceStudio", "OpenSEO", "Cap", "Chatwoot", "Cal.diy", "AppFlowy", "Open Generative AI"):
+    for name in ("VoiceStudio", "OpenSEO", "Cap", "Chatwoot", "Cal.diy", "AppFlowy", "Open Generative AI", "OpenProject", "OpenWhispr"):
         assert name in out
     assert "ElevenLabs" in out and "● en marche" in out
     assert cli("tools", "status", "openseo") == 0
@@ -496,4 +546,4 @@ def test_dashboard_lists_tools(make_config):
 
 def test_catalog_yaml_is_valid_utf8_yaml():
     raw = Path(__file__).resolve().parent.parent / "router" / "toolbox" / "catalog.yaml"
-    assert len(yaml.safe_load(raw.read_text(encoding="utf-8"))) == 7
+    assert len(yaml.safe_load(raw.read_text(encoding="utf-8"))) == 9

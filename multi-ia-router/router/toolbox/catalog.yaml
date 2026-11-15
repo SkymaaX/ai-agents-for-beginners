@@ -188,6 +188,7 @@ appflowy:
 
 open_generative_ai:
   name: Open Generative AI
+  aka: [OpenHiggsfield AI, Open-Higgsfield-AI]   # ancien nom : l'ancienne adresse GitHub affiche la même page
   replaces: Higgsfield
   summary: Studio d'images, vidéos et lip-sync avec des centaines de modèles.
   repo: https://github.com/Anil-matcha/Open-Generative-AI
@@ -207,3 +208,65 @@ open_generative_ai:
     - "Par défaut, la génération passe par le service cloud Muapi.ai (clé et crédits requis). Le local n'existe que dans l'application de bureau."
     - "Installeurs non signés : le README demande de contourner SmartScreen (Windows), Gatekeeper (macOS : xattr -cr) et d'abaisser une protection AppArmor (Ubuntu 24.04+). Le routeur ne le fait pas à ta place."
     - "Le projet se présente comme « sans filtre » : à toi d'évaluer."
+
+openproject:
+  name: OpenProject
+  replaces: Asana
+  summary: Gestion de projets et de tâches (planning, tableaux, wiki).
+  repo: https://github.com/opf/openproject
+  license: GPL-3.0
+  kind: compose
+  # Le dépôt d'installation Docker est distinct du dépôt du produit, et versionné par branche.
+  git: https://github.com/opf/openproject-docker-compose.git
+  git_branch: stable/17
+  compose_file: docker-compose.yml
+  env_file: .env
+  env_template: .env.example
+  port: 8088
+  url: "http://localhost:{port}"
+  health: /health_checks/default
+  secrets: {secret_key: 64, collab: 32}
+  env:
+    SECRET_KEY_BASE: "{secret_key}"
+    COLLABORATIVE_SERVER_SECRET: "{collab}"
+    PORT: "127.0.0.1:{port}"
+    OPENPROJECT_HOST__NAME: "localhost:{port}"
+    OPENPROJECT_HTTPS: "false"
+    OPDATA: opdata
+  disk: "environ 9 services (base, cache, proxy, web, worker, cron, éditeur collaboratif…)"
+  needs: [Docker, git]
+  verified: "README (dépôt opf/openproject) + opf/openproject-docker-compose : README, docker-compose.yml, .env.example (branche stable/17). Documentation en ligne et API non lisibles depuis le conteneur de construction."
+  router: >-
+    Non branché : l'API REST n'a pas pu être vérifiée (documentation officielle illisible
+    depuis le conteneur de construction). Piste : exporter les parties d'un plan en tâches.
+  warnings:
+    - "Première connexion : identifiant admin, mot de passe admin (documentation du projet). Change-le tout de suite."
+    - "Le compose officiel publie le port sur toutes les interfaces par défaut : le routeur le restreint à 127.0.0.1 (port 8088, car 8080 est le port de SearXNG)."
+    - "Les secrets SECRET_KEY_BASE et COLLABORATIVE_SERVER_SECRET sont remplacés par des valeurs aléatoires. Le mot de passe de la base reste celui du projet (p4ssw0rd) : la base n'est pas exposée hors du réseau Docker, et ne doit pas être changé sans changer DATABASE_URL en même temps."
+    - "Les pièces jointes vont dans le volume Docker nommé `opdata` : aucun dossier système ni sudo à prévoir (le README officiel propose un dossier /var/openproject/assets)."
+    - "Branche figée sur stable/17 : une version majeure suivante demandera de changer git_branch dans le catalogue."
+    - "Édition Community gratuite ; l'édition Enterprise est payante (ses limites exactes ne sont pas dans le README)."
+
+openwhispr:
+  name: OpenWhispr
+  replaces: Wispr Flow
+  summary: Dictée vocale qui écrit dans n'importe quelle application (application de bureau).
+  repo: https://github.com/OpenWhispr/openwhispr
+  license: MIT
+  kind: manual
+  download: https://github.com/OpenWhispr/openwhispr/releases/latest
+  disk: "application de bureau ; modèles vocaux locaux à télécharger"
+  needs: ["Node.js 24 ou plus (seulement pour compiler soi-même)"]
+  verified: README (installeurs, moteurs locaux et cloud). L'API publique et le serveur MCP annoncés ne sont documentés que sur un site illisible depuis le conteneur de construction.
+  router: >-
+    Non branché : application de bureau de dictée. Utile pour dicter ta demande dans le champ
+    du tableau de bord. Son API et son serveur MCP annoncés n'ont pas pu être vérifiés.
+  manual:
+    - "Télécharger l'installeur sur https://github.com/OpenWhispr/openwhispr/releases/latest (Windows .exe, macOS .dmg, Linux .AppImage / .deb / .rpm)."
+    - "macOS ou Linux x86_64 avec Homebrew (paquet maintenu par la communauté) : brew install --cask openwhispr"
+    - "Compiler soi-même : git clone https://github.com/OpenWhispr/openwhispr.git, puis npm install et npm run dev (Node.js 24 ou plus)."
+    - "Choisir un modèle LOCAL (Whisper ou Parakeet) pour que l'audio ne quitte pas ta machine."
+  warnings:
+    - "Les modèles cloud demandent ta propre clé (BYOK) et sont facturés par leur fournisseur ; les modèles locaux sont gratuits."
+    - "L'application dicte dans n'importe quelle application (raccourci clavier global, collage automatique) et a besoin du microphone ; les autorisations système exactes ne sont pas détaillées dans le README."
+    - "Le README annonce « aucune collecte, aucune télémétrie ». Il ne dit pas si les installeurs sont signés : vérifie l'éditeur affiché par ton système avant d'installer."

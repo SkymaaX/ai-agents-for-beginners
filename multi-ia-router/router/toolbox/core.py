@@ -46,6 +46,8 @@ class ToolSpec(BaseModel):
     health: str = "/"
     health_strict: bool = False  # True : seul un 200 compte comme « en marche »
     git: str = ""
+    git_branch: str = ""
+    aka: list[str] = Field(default_factory=list)
     compose_file: str = ""
     env_file: str = ""
     env_template: str = ""
@@ -326,7 +328,8 @@ class Toolbox:
             self.say(f"  Dépôt officiel : {spec.git}")
             if not self.dry_run:
                 target.parent.mkdir(parents=True, exist_ok=True)
-            self._exec(["git", "clone", "--depth", "1", spec.git, str(target)], timeout=900)
+            branch = ["--branch", spec.git_branch] if spec.git_branch else []
+            self._exec(["git", "clone", "--depth", "1", *branch, spec.git, str(target)], timeout=900)
 
         values = self._values(spec)
         env_path = target / spec.env_file

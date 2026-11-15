@@ -24,6 +24,8 @@ def run_tools(config, args) -> int:
             print(f"{mark} {spec.name:<20} remplace {spec.replaces:<26} {status.state}{where}")
             if action == "status" or getattr(args, "tool", None):
                 print(f"    {spec.summary}")
+                if spec.aka:
+                    print(f"    Anciens noms / autres noms : {', '.join(spec.aka)}")
                 print(f"    Dépôt : {spec.repo}  ({spec.license})  — vérifié sur : {spec.verified}")
                 print(f"    Dans le routeur : {' '.join(spec.router.split())}")
                 if spec.needs:
